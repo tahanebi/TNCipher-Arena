@@ -11,7 +11,7 @@
 body{ margin:0; overflow:hidden; background:#000; font-family:'Rajdhani',sans-serif; user-select:none; }
 
 /* ── ANA MENÜ ── */
-#main-menu{ position:fixed; inset:0; background:#000; display:flex; align-items:center; justify-content:center; z-index:200; flex-direction:column; overflow:hidden; }
+#main-menu{ position:fixed; inset:0; background:#000; display:none; align-items:center; justify-content:center; z-index:200; flex-direction:column; overflow:hidden; }
 #menu-bg-canvas{ position:absolute; inset:0; z-index:0; }
 #menu-scanlines{ position:absolute; inset:0; z-index:1; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px); }
 #menu-vignette{ position:absolute; inset:0; z-index:1; pointer-events:none; background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.85) 100%); }
@@ -22,6 +22,21 @@ body{ margin:0; overflow:hidden; background:#000; font-family:'Rajdhani',sans-se
 .menu-status{ margin-left:auto; display:flex; align-items:center; gap:8px; color:var(--cyan); font-size:13px; font-family:'Share Tech Mono',monospace; }
 .status-dot{ width:8px; height:8px; border-radius:50%; background:var(--cyan); animation:blink 1.2s infinite; }
 @keyframes blink{ 0%,100%{opacity:1} 50%{opacity:.2} }
+@keyframes introFadeIn{ from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+@keyframes introBg{ from{opacity:0} to{opacity:1} }
+@keyframes scanMove{ 0%{transform:translateY(-10px)} 100%{transform:translateY(100vh)} }
+@keyframes glitch1{ 0%,94%,100%{transform:translate(0)} 95%{transform:translate(-3px,1px)} 97%{transform:translate(3px,-1px)} }
+@keyframes introLine{ from{width:0;opacity:0} to{width:380px;opacity:1} }
+/* Intro */
+#intro-screen{ position:fixed;inset:0;background:#000;z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden; }
+#intro-scan-line{ position:absolute;left:0;width:100%;height:2px;background:linear-gradient(to right,transparent,rgba(230,184,0,.25),transparent);animation:scanMove 2s linear infinite; }
+#intro-scanlines{ position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.1) 3px,rgba(0,0,0,.1) 4px); }
+#intro-logo{ font-size:96px;font-weight:900;letter-spacing:16px;color:transparent;background:linear-gradient(135deg,#888 0%,#fff 30%,var(--gold) 50%,#fff 70%,#555 100%);-webkit-background-clip:text;background-clip:text;opacity:0;animation:introFadeIn 1.1s cubic-bezier(.2,0,.1,1) .6s forwards;font-family:'Rajdhani',sans-serif;filter:drop-shadow(0 0 30px rgba(230,184,0,.35)); }
+#intro-rule{ width:0;height:1px;background:var(--gold);box-shadow:0 0 10px var(--gold);animation:introLine .9s ease 1.5s forwards;margin:18px 0; }
+#intro-sub{ font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:7px;color:rgba(230,184,0,.45);opacity:0;animation:introFadeIn .7s ease 1.9s forwards; }
+#intro-loading{ font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:3px;color:rgba(255,255,255,.22);opacity:0;animation:introFadeIn .5s ease 2.5s forwards;margin-top:40px; }
+#intro-bar-wrap{ width:280px;height:2px;background:rgba(255,255,255,.08);margin-top:8px;overflow:hidden;opacity:0;animation:introFadeIn .3s ease 2.8s forwards; }
+#intro-bar{ height:100%;width:0%;background:var(--gold);box-shadow:0 0 8px var(--gold); }
 .game-title{ font-size:88px; font-weight:700; letter-spacing:20px; color:transparent; background:linear-gradient(135deg,#fff 0%,var(--gold) 40%,#fff 60%,var(--gold) 100%); -webkit-background-clip:text; background-clip:text; line-height:1; margin-bottom:4px; animation:titleGlow 3s ease-in-out infinite alternate; }
 @keyframes titleGlow{ from{filter:brightness(1)} to{filter:brightness(1.3)} }
 .game-subtitle{ font-size:14px; color:rgba(230,184,0,.6); letter-spacing:12px; font-family:'Share Tech Mono',monospace; margin-bottom:50px; }
@@ -67,8 +82,10 @@ body{ margin:0; overflow:hidden; background:#000; font-family:'Rajdhani',sans-se
 #ch-dot{ position:absolute; width:3px; height:3px; background:var(--red); border-radius:50%; top:-1.5px; left:-1.5px; }
 
 /* Ölüm */
-#death-screen{ position:fixed; inset:0; background:rgba(10,0,0,.95); display:none; align-items:center; justify-content:center; z-index:300; flex-direction:column; color:var(--red); }
-.kia-text{ font-size:90px; font-weight:900; letter-spacing:15px; text-shadow:0 0 50px var(--red); margin-bottom:20px; }
+#death-screen{ position:fixed; inset:0; background:linear-gradient(180deg,#0a0000 0%,#160000 50%,#0a0000 100%); display:none; align-items:center; justify-content:center; z-index:300; flex-direction:column; color:var(--red); }
+.kia-text{ font-size:68px; font-weight:900; letter-spacing:18px; color:#fff; text-shadow:0 0 60px var(--red),0 0 120px rgba(255,0,68,.25); margin-bottom:10px; font-family:'Rajdhani',sans-serif; }
+#death-top-bar{ width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--red),transparent);margin-bottom:55px; }
+#death-sub{ font-size:12px;color:rgba(255,0,68,.45);letter-spacing:8px;font-family:'Share Tech Mono',monospace;margin-bottom:45px; }
 #respawn-timer{ font-size:20px; color:#aaa; margin-bottom:40px; font-family:'Share Tech Mono',monospace; }
 .btn-respawn{ display:none; padding:16px 48px; background:transparent; color:var(--red); border:1px solid var(--red); font-size:20px; font-weight:700; cursor:pointer; transition:.2s; text-transform:uppercase; letter-spacing:4px; font-family:'Rajdhani',sans-serif; clip-path:polygon(12px 0%,100% 0%,calc(100% - 12px) 100%,0% 100%); }
 .btn-respawn:hover{ background:var(--red); color:#fff; }
@@ -133,6 +150,17 @@ body{ margin:0; overflow:hidden; background:#000; font-family:'Rajdhani',sans-se
 </style>
 </head>
 <body oncontextmenu="return false;">
+
+<!-- INTRO EKRANI -->
+<div id="intro-screen">
+  <div id="intro-scanlines"></div>
+  <div id="intro-scan-line"></div>
+  <div id="intro-logo">TN CIPHER</div>
+  <div id="intro-rule"></div>
+  <div id="intro-sub">// OPERASYON: ÇÖL FIRTINASI //</div>
+  <div id="intro-loading">SİSTEM BAŞLATILIYOR...</div>
+  <div id="intro-bar-wrap"><div id="intro-bar"></div></div>
+</div>
 
 <!-- MENÜ ARKAPLAN -->
 <canvas id="menu-bg-canvas"></canvas>
@@ -256,7 +284,9 @@ body{ margin:0; overflow:hidden; background:#000; font-family:'Rajdhani',sans-se
 
 <!-- ÖLÜM -->
 <div id="death-screen">
+  <div id="death-top-bar"></div>
   <div class="kia-text">YOK EDİLDİN</div>
+  <div id="death-sub">OPERATÖR DEVRE DIŞI</div>
   <div id="respawn-timer">SİNYAL ARANIYYOR... (4)</div>
   <button class="btn-respawn" id="btn-respawn">YENİDEN KONUŞLAN</button>
 </div>
@@ -374,6 +404,64 @@ let aimProgress=0; // 0=hip, 1=ads
 
 /* ── SES ── */
 const AC=new(window.AudioContext||window.webkitAudioContext)();
+
+// Gürültü buffer — silah sesleri için
+function makeNoise(dur,vol,filter='none',filterFreq=1000){
+  const buf=AC.createBuffer(1,AC.sampleRate*dur,AC.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(AC.sampleRate*dur*.6));
+  const src=AC.createBufferSource();
+  const g=AC.createGain();
+  src.buffer=buf;
+  if(filter!=='none'){
+    const f=AC.createBiquadFilter();f.type=filter;f.frequency.value=filterFreq;
+    src.connect(f);f.connect(g);
+  } else { src.connect(g); }
+  g.connect(AC.destination);
+  g.gain.setValueAtTime(vol,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);
+  src.start();return src;
+}
+
+// Ciddi ölüm sesi
+function playDeathSound(){
+  if(AC.state==='suspended')AC.resume();
+  // Derin boom
+  makeNoise(.8,1.2,'lowpass',200);
+  // Yüksek frekans çekilme
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.connect(g);g.connect(AC.destination);
+  o.type='sine';
+  o.frequency.setValueAtTime(400,AC.currentTime);
+  o.frequency.exponentialRampToValueAtTime(60,AC.currentTime+.8);
+  g.gain.setValueAtTime(.4,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.8);
+  o.start();o.stop(AC.currentTime+.8);
+  // Çan sesi (dramatik)
+  setTimeout(()=>{
+    const o2=AC.createOscillator(),g2=AC.createGain();
+    o2.connect(g2);g2.connect(AC.destination);
+    o2.type='sine';o2.frequency.setValueAtTime(220,AC.currentTime);
+    g2.gain.setValueAtTime(.2,AC.currentTime);
+    g2.gain.exponentialRampToValueAtTime(.001,AC.currentTime+1.5);
+    o2.start();o2.stop(AC.currentTime+1.5);
+  },200);
+}
+
+// Intro sesi
+function playIntroSound(){
+  if(AC.state==='suspended')AC.resume();
+  [0,.12,.24].forEach((t,i)=>{
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type='sine';
+    const freqs=[220,330,440];
+    o.frequency.setValueAtTime(freqs[i],AC.currentTime+t);
+    g.gain.setValueAtTime(.15,AC.currentTime+t);
+    g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+t+.4);
+    o.start(AC.currentTime+t);o.stop(AC.currentTime+t+.45);
+  });
+}
 function playTone(freq,type,dur,vol,freqEnd){
   if(AC.state==='suspended')AC.resume();
   const o=AC.createOscillator(),g=AC.createGain();
@@ -821,11 +909,18 @@ function makePlayerModel(id){
 function makeNameTag(txt){
   const c=document.createElement('canvas');c.width=256;c.height=48;
   const ctx=c.getContext('2d');
-  ctx.fillStyle='rgba(0,0,0,.65)';ctx.roundRect(4,4,248,40,8);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.75)';ctx.roundRect(4,4,248,40,8);ctx.fill();
   ctx.font='bold 20px monospace';ctx.fillStyle='#e6b800';ctx.textAlign='center';
   ctx.fillText('Ajan '+txt,128,30);
-  const mat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false});
-  const s=new THREE.Sprite(mat);s.scale.set(1.4,.3,1);return s;
+  // depthTest:true = duvar arkasında gizlenir
+  const mat=new THREE.SpriteMaterial({
+    map:new THREE.CanvasTexture(c),
+    transparent:true,
+    depthTest:true,    // DUVAR ARKASINDA GİZLENİR
+    depthWrite:false,
+    sizeAttenuation:true
+  });
+  const s=new THREE.Sprite(mat);s.scale.set(1.6,.32,1);return s;
 }
 
 /* ── UI FONKS ── */
@@ -890,6 +985,32 @@ function reloadWeapon(){
 }
 
 /* ── BAŞLATMA ── */
+/* ── INTRO ANİMASYONU ── */
+(function runIntro(){
+  const intro = document.getElementById('intro-screen');
+  const bar = document.getElementById('intro-bar');
+  if(!intro) return;
+
+  // Bar doldur
+  let pct = 0;
+  const barAnim = setInterval(()=>{
+    pct += Math.random() * 8 + 2;
+    if(pct >= 100){ pct = 100; clearInterval(barAnim); }
+    bar.style.width = pct + '%';
+  }, 80);
+
+  // 3.2s sonra intro'yu kapat, menüyü göster
+  setTimeout(()=>{
+    playIntroSound();
+    intro.style.transition = 'opacity .6s ease';
+    intro.style.opacity = '0';
+    setTimeout(()=>{
+      intro.style.display = 'none';
+      document.getElementById('main-menu').style.display = 'flex';
+    }, 600);
+  }, 3200);
+})();
+
 function startGame(testMode=false){
   isTestRange=testMode;gameState='playing';
   document.getElementById('main-menu').style.display='none';
@@ -967,64 +1088,81 @@ document.addEventListener('mouseup',e=>{
   if(e.button===2){isAiming=false;targetWpnPos.copy(BASE_POS);document.getElementById('crosshair').style.opacity='1';}
 });
 
-/* ── RAYCASTER & ATEŞ ── */
+/* ── RAYCASTER & ATEŞ — DUVAR GEÇİRMEZ ── */
 const ray=new THREE.Raycaster();
 function doRaycast(w,spread=new THREE.Vector2()){
   ray.setFromCamera(spread,camera);
   const start=camera.getWorldPosition(new THREE.Vector3());
-  let end=ray.ray.at(w.range||150,new THREE.Vector3());
+  const maxRange=w.range||150;
+  let end=ray.ray.at(maxRange,new THREE.Vector3());
 
-  // Duvar
-  if(curWpn!=='knife'){
-    const wHits=ray.intersectObjects([...wallMeshes,floor]);
-    if(wHits.length>0){
-      const wh=wHits[0];
-      const norm=wh.face.normal.clone().transformDirection(wh.object.matrixWorld);
-      makeHole(wh.point,norm);
-      spawnP(innerWidth/2,innerHeight/2,curWpn==='shotgun'?10:4,'#ffaa33','spark');
-      if(wh.distance<(w.range||150)) end=wh.point;
-    }
-  }
-
-  // Hedefler
+  // Tüm hedef mesh'leri topla
   const targets=[];
-  Object.values(otherPlayers).forEach(p=>p.children.forEach(c=>targets.push(c)));
-  dummyData.forEach(d=>{if(d.alive)d.g.children.forEach(c=>{if(c.userData?.dummy)targets.push(c);})});
-  const hits=ray.intersectObjects(targets);
+  Object.values(otherPlayers).forEach(p=>{
+    p.traverse(c=>{if(c.isMesh&&(c.userData.playerId||c.userData.part))targets.push(c);});
+  });
+  dummyData.forEach(d=>{
+    if(d.alive) d.g.traverse(c=>{if(c.isMesh&&c.userData.dummy)targets.push(c);});
+  });
 
-  if(hits.length>0&&hits[0].distance<=(w.range||150)){
-    const obj=hits[0].object;const ud=obj.userData;end=hits[0].point;
+  // DUVAR + HEDEF HEPSİ BİRLİKTE — mesafeye göre sıralı
+  const allObjs=[...wallMeshes,floor,...targets];
+  const allHits=ray.intersectObjects(allObjs,false)
+    .filter(h=>h.distance<=maxRange)
+    .sort((a,b)=>a.distance-b.distance);
+
+  for(const hit of allHits){
+    const obj=hit.object; const ud=obj.userData;
+    const isWall=wallMeshes.includes(obj)||obj===floor;
+
+    if(isWall){
+      // DUVARA ÇARPTI — dur
+      end=hit.point;
+      if(curWpn!=='knife'){
+        const norm=hit.face.normal.clone().transformDirection(obj.matrixWorld);
+        makeHole(hit.point,norm);
+        spawnP(innerWidth/2,innerHeight/2,curWpn==='shotgun'?10:4,'#ffaa33','spark');
+      }
+      break;
+    }
+
+    // HEDEFE ÇARPTI (duvardan önce)
     const sx=innerWidth/2,sy=innerHeight/2;
+    end=hit.point;
 
     if(ud.dummy){
-      const dum=dummyData.find(d=>d.g.children.includes(obj));
-      if(dum&&dum.alive){
+      const dum=dummyData.find(d=>d.alive&&d.g.traverse(c=>c===obj));
+      const dum2=dum||dummyData.find(d=>d.alive&&(d.body===obj||d.head===obj||d.lleg===obj||d.rleg===obj||d.larm===obj||d.rarm===obj));
+      if(dum2){
         let dmg=w.damage;
-        if(ud.part==='head') dmg*=2;else if(ud.part==='leg') dmg*=.6;
-        dum.hp=Math.max(0,dum.hp-dmg);dum.hitT=.15;
+        if(ud.part==='head')dmg*=2;else if(ud.part==='leg')dmg*=.6;
+        dum2.hp=Math.max(0,dum2.hp-dmg);dum2.hitT=.15;
         showDmgNum(dmg,ud.part==='head');playSound('hitmarker');
         spawnP(sx,sy,ud.part==='head'?18:10,'#cc0022','blood');
         triggerShake(1.5,.08);
-        obj.material.color.setHex(0xff2200);setTimeout(()=>{if(obj.material)obj.material.color.setHex(ud.part==='head'?0xffcc99:0xcc4422);},100);
-        if(dum.hp<=0&&dum.alive){
-          dum.alive=false;dum.respawn=5;dum.deathT=.3;
+        if(obj.material){obj.material.color.setHex(0xff2200);setTimeout(()=>{if(obj.material)obj.material.color.setHex(ud.part==='head'?0xffcc99:0xcc4422);},100);}
+        if(dum2.hp<=0&&dum2.alive){
+          dum2.alive=false;dum2.respawn=5;dum2.deathT=.3;
           playSound('kill');spawnP(sx,sy,28,'#880000','blood');
           document.getElementById('kill-flash').style.opacity='1';setTimeout(()=>document.getElementById('kill-flash').style.opacity='0',180);
-          showKillFeed('Sen',dum.label,curWpn);
-          updateDevPanel();
+          showKillFeed('Sen',dum2.label,curWpn);updateDevPanel();
         }
       }
     } else if(ud.playerId){
-      let dmg=w.damage;if(ud.part==='head')dmg*=2;else if(ud.part==='leg')dmg*=.6;
+      let dmg=w.damage;
+      if(ud.part==='head')dmg*=2;else if(ud.part==='leg')dmg*=.6;
       socket.emit('hitEnemy',{targetId:ud.playerId,damage:dmg});
       playSound('hitmarker');showDmgNum(dmg,ud.part==='head');
       spawnP(sx,sy,10,'#cc0022','blood');
-      obj.material.color.setHex(0xff0044);setTimeout(()=>obj.material.color.setHex(ud.part==='head'?0xffccaa:0x556b2f),100);
+      if(obj.material){obj.material.color.setHex(0xff0044);setTimeout(()=>{if(obj.material)obj.material.color.setHex(ud.part==='head'?0xffccaa:0x3a5a2a);},100);}
       const chL=document.querySelectorAll('.ch');
       chL.forEach(c=>c.style.backgroundColor=ud.part==='head'?'#ff0000':'#ffaa00');
       setTimeout(()=>chL.forEach(c=>c.style.backgroundColor='#fff'),140);
+      if(otherPlayers[ud.playerId]&&otherPlayers[ud.playerId].userData)otherPlayers[ud.playerId].userData.hitFlash=.25;
     }
+    break;
   }
+
   if(curWpn!=='knife') makeTracer(start,end);
 }
 function fireWeapon(){
@@ -1134,22 +1272,31 @@ socket.on('updateScoreboard', obj => {
 socket.on('playerDied', data => {
   if(data.victim === socket.id) {
     gameState = 'dead'; document.exitPointerLock();
-    ['crosshair','hud','ammo-display'].forEach(id => document.getElementById(id).style.display = 'none');
-    document.getElementById('main-menu').style.display = 'none';
-    document.getElementById('death-screen').style.display = 'flex';
-    document.getElementById('btn-respawn').style.display = 'none';
-    let t = 4;
-    const tel = document.getElementById('respawn-timer');
-    tel.innerText = `SİNYAL ARANIYYOR... (${t})`;
-    const cd = setInterval(() => {
-      t--; tel.innerText = `SİNYAL ARANIYYOR... (${t})`;
-      if(t <= 0) { clearInterval(cd); tel.innerText = 'YENİDEN KONUŞLANMAYA HAZIR'; document.getElementById('btn-respawn').style.display = 'block'; }
-    }, 1000);
+    // Ciddi ölüm efektleri
+    playDeathSound();
+    triggerShake(12, .5);
+    // Ekran kırmızıya batar
+    document.getElementById('blood-overlay').style.opacity = '1';
+    document.getElementById('blood-overlay').style.transition = 'opacity 1.5s';
+    setTimeout(()=>{ document.getElementById('blood-overlay').style.transition = 'opacity .3s'; document.getElementById('blood-overlay').style.opacity = '0'; }, 1500);
+    // 0.4s sonra ölüm ekranı
+    setTimeout(()=>{
+      ['crosshair','hud','ammo-display'].forEach(id => document.getElementById(id).style.display = 'none');
+      document.getElementById('main-menu').style.display = 'none';
+      document.getElementById('death-screen').style.display = 'flex';
+      document.getElementById('btn-respawn').style.display = 'none';
+      let t = 4;
+      const tel = document.getElementById('respawn-timer');
+      tel.innerText = `SİNYAL ARANIYYOR... (${t})`;
+      const cd = setInterval(() => {
+        t--; tel.innerText = `SİNYAL ARANIYYOR... (${t})`;
+        if(t <= 0) { clearInterval(cd); tel.innerText = 'YENİDEN KONUŞLANMAYA HAZIR'; document.getElementById('btn-respawn').style.display = 'block'; }
+      }, 1000);
+    }, 400);
   } else if(otherPlayers[data.victim]) {
-    // Ölüm animasyonu — sahneden hemen silme, animasyon oynat
     const op = otherPlayers[data.victim];
     if(op.userData) op.userData.isDead = true;
-    setTimeout(() => { scene.remove(otherPlayers[data.victim]); delete otherPlayers[data.victim]; }, 3500);
+    setTimeout(() => { if(otherPlayers[data.victim]){scene.remove(otherPlayers[data.victim]); delete otherPlayers[data.victim];} }, 3500);
   }
   if(data.killer === socket.id) {
     playSound('kill');
