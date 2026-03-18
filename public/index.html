@@ -757,67 +757,122 @@ function updateHpBar(bar,hp,maxHp=100){
 
 function mkPlayer(id){
   const g=new THREE.Group();
-  const bm=new THREE.MeshStandardMaterial({color:0x3a5a2a,roughness:.75,metalness:.05});
-  const sm=new THREE.MeshStandardMaterial({color:0xffccaa,roughness:.8});
-  const hm=new THREE.MeshStandardMaterial({color:0x1e2e14,roughness:.5,metalness:.2});
-  const btm=new THREE.MeshStandardMaterial({color:0x2a1a0a,roughness:.9});
+  // Materyaller
+  const bm =new THREE.MeshStandardMaterial({color:0x3a5a2a,roughness:.75,metalness:.04});
+  const bm2=new THREE.MeshStandardMaterial({color:0x2e4820,roughness:.8});  // koyu yeşil
+  const sm =new THREE.MeshStandardMaterial({color:0xffccaa,roughness:.8});
+  const hm =new THREE.MeshStandardMaterial({color:0x1a2812,roughness:.5,metalness:.2});
+  const btm=new THREE.MeshStandardMaterial({color:0x1a1208,roughness:.9});
   const gvm=new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:.6});
+  const vstM=new THREE.MeshStandardMaterial({color:0x253318,roughness:.7}); // vest
+  const blkM=new THREE.MeshStandardMaterial({color:0x111111,roughness:.4,metalness:.8}); // silah
 
-  // Kemik sistemi
+  // ── PELVIS (hareket merkezi) ─────────────────────────────────
   const pelvis=new THREE.Group();pelvis.position.y=.9;g.add(pelvis);
-  const hips=new THREE.Mesh(new THREE.BoxGeometry(.54,.21,.27),bm);hips.castShadow=true;hips.userData={playerId:id,part:'leg'};pelvis.add(hips);
-  const spine=new THREE.Group();spine.position.y=.14;pelvis.add(spine);
-  const torso=new THREE.Mesh(new THREE.BoxGeometry(.64,.98,.32),bm);torso.position.y=.49;torso.castShadow=true;torso.userData={playerId:id,part:'body'};spine.add(torso);
-  const shoulders=new THREE.Group();shoulders.position.y=.96;spine.add(shoulders);
+  // Kalça hitbox — geniş
+  const hips=new THREE.Mesh(new THREE.BoxGeometry(.58,.24,.3),bm);
+  hips.castShadow=true;hips.userData={playerId:id,part:'leg'};pelvis.add(hips);
+
+  // ── OMURGA ──────────────────────────────────────────────────
+  const spine=new THREE.Group();spine.position.y=.15;pelvis.add(spine);
+  // Ana gövde
+  const torso=new THREE.Mesh(new THREE.BoxGeometry(.66,1.02,.34),bm);
+  torso.position.y=.51;torso.castShadow=true;torso.userData={playerId:id,part:'body'};spine.add(torso);
+  // Taktik yelek
+  const vest=new THREE.Mesh(new THREE.BoxGeometry(.7,.48,.36),vstM);
+  vest.position.set(0,.38,0);vest.castShadow=true;spine.add(vest);
+  // Yelek cepleri
+  const pkt1=new THREE.Mesh(new THREE.BoxGeometry(.18,.14,.04),bm2);pkt1.position.set(-.22,.35,.18);spine.add(pkt1);
+  const pkt2=new THREE.Mesh(new THREE.BoxGeometry(.18,.14,.04),bm2);pkt2.position.set(.22,.35,.18);spine.add(pkt2);
+  // Kemer
+  const belt=new THREE.Mesh(new THREE.BoxGeometry(.66,.08,.32),new THREE.MeshStandardMaterial({color:0x111111,roughness:.7}));
+  belt.position.set(0,.12,0);spine.add(belt);
+
+  // ── OMUZLAR ─────────────────────────────────────────────────
+  const shoulders=new THREE.Group();shoulders.position.y=.98;spine.add(shoulders);
+
+  // ── BOYUN + KAFA ────────────────────────────────────────────
   const neckG=new THREE.Group();shoulders.add(neckG);
-  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.072,.088,.13,8),sm);neck.position.y=.065;neckG.add(neck);
-  const head=new THREE.Mesh(new THREE.BoxGeometry(.32,.36,.3),sm);head.position.y=.25;head.castShadow=true;head.userData={playerId:id,part:'head'};neckG.add(head);
-  const helm=new THREE.Mesh(new THREE.BoxGeometry(.35,.18,.33),hm);helm.position.y=.39;neckG.add(helm);
-  const visor=new THREE.Mesh(new THREE.BoxGeometry(.27,.058,.038),new THREE.MeshStandardMaterial({color:0x223344,roughness:.1,metalness:.8,transparent:true,opacity:.7}));visor.position.set(0,.29,.16);neckG.add(visor);
-  // Vest detail
-  const vest=new THREE.Mesh(new THREE.BoxGeometry(.68,.4,.34),new THREE.MeshStandardMaterial({color:0x2a3a20,roughness:.7}));vest.position.set(0,.3,.0);vest.castShadow=true;spine.add(vest);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.07,.086,.15,8),sm);neck.position.y=.075;neckG.add(neck);
+  // Kafa (hitbox olarak kullanılır)
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.33,.37,.31),sm);
+  head.position.y=.26;head.castShadow=true;head.userData={playerId:id,part:'head'};neckG.add(head);
+  // Kask
+  const helm=new THREE.Mesh(new THREE.BoxGeometry(.36,.2,.34),hm);helm.position.y=.41;neckG.add(helm);
+  // Kask ön vizörü
+  const visor=new THREE.Mesh(new THREE.BoxGeometry(.28,.06,.04),new THREE.MeshStandardMaterial({color:0x223344,roughness:.1,metalness:.8,transparent:true,opacity:.65}));visor.position.set(0,.3,.17);neckG.add(visor);
+  // Kulaklık
+  const ear1=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,.06,8),hm);ear1.rotation.z=Math.PI/2;ear1.position.set(-.2,.33,0);neckG.add(ear1);
+  const ear2=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,.06,8),hm);ear2.rotation.z=Math.PI/2;ear2.position.set(.2,.33,0);neckG.add(ear2);
+  // Yüz
+  const nose=new THREE.Mesh(new THREE.BoxGeometry(.04,.04,.06),sm);nose.position.set(0,.2,.16);neckG.add(nose);
 
-  // Sol kol
-  const lSh=new THREE.Group();lSh.position.set(-.4,0,0);shoulders.add(lSh);
-  const lUA=new THREE.Mesh(new THREE.CylinderGeometry(.092,.082,.35,8),bm);lUA.position.y=-.175;lUA.castShadow=true;lSh.add(lUA);
-  const lEl=new THREE.Group();lEl.position.y=-.37;lSh.add(lEl);
-  const lFA=new THREE.Mesh(new THREE.CylinderGeometry(.082,.072,.31,8),bm);lFA.position.y=-.155;lFA.castShadow=true;lEl.add(lFA);
-  const lHn=new THREE.Mesh(new THREE.BoxGeometry(.088,.088,.125),gvm);lHn.position.y=-.35;lEl.add(lHn);
+  // ── SOL KOL ─────────────────────────────────────────────────
+  const lSh=new THREE.Group();lSh.position.set(-.41,.0,0);shoulders.add(lSh);
+  // Omuz pad
+  const lShPad=new THREE.Mesh(new THREE.BoxGeometry(.14,.1,.14),vstM);lShPad.position.set(-.06,0,0);lSh.add(lShPad);
+  const lUA=new THREE.Mesh(new THREE.CylinderGeometry(.095,.085,.37,8),bm);lUA.position.y=-.185;lUA.castShadow=true;lSh.add(lUA);
+  const lEl=new THREE.Group();lEl.position.y=-.38;lSh.add(lEl);
+  const lFA=new THREE.Mesh(new THREE.CylinderGeometry(.085,.075,.33,8),bm);lFA.position.y=-.165;lFA.castShadow=true;lEl.add(lFA);
+  const lHn=new THREE.Mesh(new THREE.BoxGeometry(.09,.09,.13),gvm);lHn.position.y=-.36;lEl.add(lHn);
 
-  // Sag kol
-  const rSh=new THREE.Group();rSh.position.set(.4,0,0);shoulders.add(rSh);
-  const rUA=new THREE.Mesh(new THREE.CylinderGeometry(.092,.082,.35,8),bm);rUA.position.y=-.175;rUA.castShadow=true;rSh.add(rUA);
-  const rEl=new THREE.Group();rEl.position.y=-.37;rSh.add(rEl);
-  const rFA=new THREE.Mesh(new THREE.CylinderGeometry(.082,.072,.31,8),bm);rFA.position.y=-.155;rFA.castShadow=true;rEl.add(rFA);
-  const rHn=new THREE.Mesh(new THREE.BoxGeometry(.088,.088,.125),gvm);rHn.position.y=-.35;rEl.add(rHn);
+  // ── SAĞ KOL ─────────────────────────────────────────────────
+  const rSh=new THREE.Group();rSh.position.set(.41,.0,0);shoulders.add(rSh);
+  const rShPad=new THREE.Mesh(new THREE.BoxGeometry(.14,.1,.14),vstM);rShPad.position.set(.06,0,0);rSh.add(rShPad);
+  const rUA=new THREE.Mesh(new THREE.CylinderGeometry(.095,.085,.37,8),bm);rUA.position.y=-.185;rUA.castShadow=true;rSh.add(rUA);
+  const rEl=new THREE.Group();rEl.position.y=-.38;rSh.add(rEl);
+  const rFA=new THREE.Mesh(new THREE.CylinderGeometry(.085,.075,.33,8),bm);rFA.position.y=-.165;rFA.castShadow=true;rEl.add(rFA);
+  const rHn=new THREE.Mesh(new THREE.BoxGeometry(.09,.09,.13),gvm);rHn.position.y=-.36;rEl.add(rHn);
 
-  // Sol bacak
-  const lHip=new THREE.Group();lHip.position.set(-.16,0,0);pelvis.add(lHip);
-  const lTh=new THREE.Mesh(new THREE.CylinderGeometry(.112,.102,.41,8),bm);lTh.position.y=-.205;lTh.castShadow=true;lTh.userData={playerId:id,part:'leg'};lHip.add(lTh);
-  const lKn=new THREE.Group();lKn.position.y=-.43;lHip.add(lKn);
-  const lSh2=new THREE.Mesh(new THREE.CylinderGeometry(.098,.088,.39,8),bm);lSh2.position.y=-.195;lSh2.castShadow=true;lKn.add(lSh2);
-  const lFt=new THREE.Mesh(new THREE.BoxGeometry(.1,.088,.19),btm);lFt.position.set(0,-.43,.04);lKn.add(lFt);
+  // ── SOL BACAK ───────────────────────────────────────────────
+  const lHip=new THREE.Group();lHip.position.set(-.17,0,0);pelvis.add(lHip);
+  const lTh=new THREE.Mesh(new THREE.CylinderGeometry(.115,.105,.43,8),bm);
+  lTh.position.y=-.215;lTh.castShadow=true;lTh.userData={playerId:id,part:'leg'};lHip.add(lTh);
+  const lKn=new THREE.Group();lKn.position.y=-.44;lHip.add(lKn);
+  const lShn=new THREE.Mesh(new THREE.CylinderGeometry(.1,.09,.41,8),bm);lShn.position.y=-.205;lShn.castShadow=true;lKn.add(lShn);
+  // Diz koruyucu
+  const lKnPd=new THREE.Mesh(new THREE.BoxGeometry(.14,.1,.08),bm2);lKnPd.position.set(0,.02,.06);lKn.add(lKnPd);
+  const lFt=new THREE.Mesh(new THREE.BoxGeometry(.11,.1,.22),btm);lFt.position.set(0,-.44,.05);lKn.add(lFt);
 
-  // Sag bacak
-  const rHip=new THREE.Group();rHip.position.set(.16,0,0);pelvis.add(rHip);
-  const rTh=new THREE.Mesh(new THREE.CylinderGeometry(.112,.102,.41,8),bm);rTh.position.y=-.205;rTh.castShadow=true;rTh.userData={playerId:id,part:'leg'};rHip.add(rTh);
-  const rKn=new THREE.Group();rKn.position.y=-.43;rHip.add(rKn);
-  const rSh2=new THREE.Mesh(new THREE.CylinderGeometry(.098,.088,.39,8),bm);rSh2.position.y=-.195;rSh2.castShadow=true;rKn.add(rSh2);
-  const rFt=new THREE.Mesh(new THREE.BoxGeometry(.1,.088,.19),btm);rFt.position.set(0,-.43,.04);rKn.add(rFt);
+  // ── SAĞ BACAK ───────────────────────────────────────────────
+  const rHip=new THREE.Group();rHip.position.set(.17,0,0);pelvis.add(rHip);
+  const rTh=new THREE.Mesh(new THREE.CylinderGeometry(.115,.105,.43,8),bm);
+  rTh.position.y=-.215;rTh.castShadow=true;rTh.userData={playerId:id,part:'leg'};rHip.add(rTh);
+  const rKn=new THREE.Group();rKn.position.y=-.44;rHip.add(rKn);
+  const rShn=new THREE.Mesh(new THREE.CylinderGeometry(.1,.09,.41,8),bm);rShn.position.y=-.205;rShn.castShadow=true;rKn.add(rShn);
+  const rKnPd=new THREE.Mesh(new THREE.BoxGeometry(.14,.1,.08),bm2);rKnPd.position.set(0,.02,.06);rKn.add(rKnPd);
+  const rFt=new THREE.Mesh(new THREE.BoxGeometry(.11,.1,.22),btm);rFt.position.set(0,-.44,.05);rKn.add(rFt);
 
-  // Silah tutacağı - sağ kolun sonunda
-  const wpnH=new THREE.Group();wpnH.position.set(0,-.37,-.14);rEl.add(wpnH);
-  // Basit silah görüntüsü
-  const wpnB=new THREE.Mesh(new THREE.BoxGeometry(.05,.1,.38),new THREE.MeshStandardMaterial({color:0x222222,roughness:.4,metalness:.8}));wpnB.position.z=-.14;wpnH.add(wpnB);
-  const wpnBrl=new THREE.Mesh(new THREE.CylinderGeometry(.01,.01,.35),new THREE.MeshStandardMaterial({color:0x111111,roughness:.2,metalness:.9}));wpnBrl.rotation.x=Math.PI/2;wpnBrl.position.set(0,.025,-.38);wpnH.add(wpnBrl);
+  // ── SİLAH — SAĞ ELDE OMUZ HİZASI ───────────────────────────
+  // wpnH sağ ön kolun alt ucunda, omuz hizasında tutulur
+  const wpnH=new THREE.Group();
+  wpnH.position.set(0,-.34,-.18); // ön kolun ucunda
+  rEl.add(wpnH);
+  // Silah gövde
+  const wpnB=new THREE.Mesh(new THREE.BoxGeometry(.048,.11,.42),blkM);
+  wpnB.position.z=-.14;wpnH.add(wpnB);
+  // Namlu
+  const wpnBrl=new THREE.Mesh(new THREE.CylinderGeometry(.009,.009,.38),
+    new THREE.MeshStandardMaterial({color:0x0a0a0a,roughness:.2,metalness:.9}));
+  wpnBrl.rotation.x=Math.PI/2;wpnBrl.position.set(0,.022,-.4);wpnH.add(wpnBrl);
+  // Şarjör
+  const wpnMag=new THREE.Mesh(new THREE.BoxGeometry(.034,.18,.07),blkM);
+  wpnMag.position.set(0,-.11,-.12);wpnMag.rotation.x=.1;wpnH.add(wpnMag);
+  // Sol el — silahı alttan tutuyor (destek eli)
+  const lSuppH=new THREE.Group();
+  lSuppH.position.set(.04,-.36,-.28); // sol ön kolun ucundan öne uzanıyor
+  lEl.add(lSuppH);
+  const lSuppMesh=new THREE.Mesh(new THREE.BoxGeometry(.09,.09,.12),gvm);
+  lSuppH.add(lSuppMesh);
 
-  // İsim + HP barı
-  const tag=mkTag(id.substring(0,6));tag.position.y=2.72;g.add(tag);
-  const hpBar=mkHpBar();hpBar.position.y=2.52;g.add(hpBar);
+  // İsim etiketi + HP barı
+  const tag=mkTag(id.substring(0,6));tag.position.y=2.8;g.add(tag);
+  const hpBar=mkHpBar();hpBar.position.y=2.58;g.add(hpBar);
 
   g.userData={
     pelvis,spine,shoulders,neckG,
     lSh,lEl,rSh,rEl,lHip,lKn,rHip,rKn,torso,head,
+    lSuppH, // sol destek eli
     wpnH,tag,hpBar,
     walkT:0,idleT:0,prevPos:new THREE.Vector3(),
     smoothSpeed:0,targetRot:0,
@@ -1475,17 +1530,24 @@ function animate(){
     const th=gl+(isCrouching||isSliding?1.1:2.0);
     if(yawObj.position.y<=th){velY=0;yawObj.position.y=th;canJump=true;}
 
-    // Lean
-    targetLean=leanLeft?.21:leanRight?-.21:0;
-    leanAngle=THREE.MathUtils.lerp(leanAngle,targetLean,.09);
-    rollObj.rotation.z=leanAngle;
+    // Lean — Q/E eğilme (isLocked şartı yok — her zaman güncelle)
+    targetLean = leanLeft ? .38 : leanRight ? -.38 : 0; // daha belirgin açı
+    leanAngle = THREE.MathUtils.lerp(leanAngle, targetLean, .1);
+    rollObj.rotation.z = leanAngle; // kamera roll — yaw/pitch bozulmaz
+    // Silah da eğiliyor
+    wpnCont.rotation.z = THREE.MathUtils.lerp(wpnCont.rotation.z||0, -leanAngle*.65, .1);
     const leanInd=document.getElementById('lean-hud');
     const lOl=document.getElementById('lean-ol-l'),rOl=document.getElementById('lean-ol-r');
-    if(Math.abs(leanAngle)>.018){
-      leanInd.style.opacity='1';leanInd.innerText=leanLeft?'◀◀ EĞİL SOL':'EĞİL SAĞ ▶▶';
-      if(lOl)lOl.style.opacity=leanLeft?Math.min(1,Math.abs(leanAngle)*5)+'':'0';
-      if(rOl)rOl.style.opacity=leanRight?Math.min(1,Math.abs(leanAngle)*5)+'':'0';
-    } else {leanInd.style.opacity='0';if(lOl)lOl.style.opacity='0';if(rOl)rOl.style.opacity='0';}
+    if(Math.abs(leanAngle)>.03){
+      leanInd.style.opacity='1';
+      leanInd.innerText=leanLeft?'◀◀ EĞİL SOL':'EĞİL SAĞ ▶▶';
+      if(lOl)lOl.style.opacity=leanLeft?Math.min(1,Math.abs(leanAngle)*3)+'':'0';
+      if(rOl)rOl.style.opacity=leanRight?Math.min(1,Math.abs(leanAngle)*3)+'':'0';
+    } else {
+      leanInd.style.opacity='0';
+      if(lOl)lOl.style.opacity='0';
+      if(rOl)rOl.style.opacity='0';
+    }
 
     // AIM
     aimProg=THREE.MathUtils.lerp(aimProg,isAiming?1:0,.16);
@@ -1502,7 +1564,10 @@ function animate(){
     // Hareket
     const isMoving2=keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD'];
     const isSprint2=keys['ShiftLeft']&&isMoving2&&!isAiming&&!isCrouching;
-    wpnCont.rotation.z=THREE.MathUtils.lerp(wpnCont.rotation.z,-leanAngle*.72+(isSprint2?.16:0),.09);
+    // wpnCont.rotation.z lean kodunda ayarlanıyor (çakışma olmasın)
+    if(!leanLeft&&!leanRight){
+      wpnCont.rotation.z=THREE.MathUtils.lerp(wpnCont.rotation.z||0,isSprint2?.14:0,.1);
+    }
 
     // Recoil
     rvY=THREE.MathUtils.lerp(rvY,0,.13);rvH=THREE.MathUtils.lerp(rvH,0,.13);kb=THREE.MathUtils.lerp(kb,0,.13);
