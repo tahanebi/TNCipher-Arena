@@ -43,12 +43,141 @@
         #scoreboard { display: none; position: absolute; top: 15%; left: 50%; transform: translateX(-50%); width: 750px; background: rgba(15, 10, 0, 0.95); border: 2px solid #e6b800; color: white; z-index: 15; padding: 25px; box-shadow: 0 0 50px #000;}
         .score-row { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(230, 184, 0, 0.2); padding: 15px 10px; font-family: monospace; font-size: 22px;}
         .score-header { font-weight: bold; color: #e6b800; border-bottom: 3px solid #e6b800; }
+
+        /* ===== YENİ EKLENTİLER - MEVCUT KOD DEĞİŞTİRİLMEDİ ===== */
+
+        /* Ekran Titremesi */
+        @keyframes screenShake {
+            0%   { transform: translate(0,0) rotate(0deg); }
+            10%  { transform: translate(-4px, -3px) rotate(-0.3deg); }
+            20%  { transform: translate(4px, 3px) rotate(0.3deg); }
+            30%  { transform: translate(-4px, 3px) rotate(0deg); }
+            40%  { transform: translate(4px, -3px) rotate(0.3deg); }
+            50%  { transform: translate(-3px, 4px) rotate(-0.3deg); }
+            60%  { transform: translate(3px, -4px) rotate(0deg); }
+            70%  { transform: translate(-4px, 3px) rotate(0.3deg); }
+            80%  { transform: translate(4px, 4px) rotate(-0.3deg); }
+            90%  { transform: translate(-3px, -3px) rotate(0.3deg); }
+            100% { transform: translate(0,0) rotate(0deg); }
+        }
+        .shake { animation: screenShake 0.35s ease-out; }
+
+        /* Öldürme Anonsu */
+        #kill-feed { position: absolute; top: 20px; right: 20px; z-index: 20; pointer-events: none; display: flex; flex-direction: column; gap: 8px; }
+        .kill-entry {
+            background: rgba(0,0,0,0.75);
+            border-left: 4px solid #e6b800;
+            padding: 8px 16px;
+            color: #fff;
+            font-size: 17px;
+            font-weight: bold;
+            font-family: monospace;
+            letter-spacing: 2px;
+            opacity: 1;
+            transition: opacity 1s ease;
+            text-shadow: 1px 1px 0 #000;
+            animation: killSlide 0.2s ease-out;
+        }
+        .kill-entry .you { color: #e6b800; }
+        .kill-entry .enemy { color: #ff4466; }
+        .kill-entry .weapon-icon { color: #aaa; font-size: 13px; margin: 0 6px; }
+        @keyframes killSlide { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Öldürme Efekti - Kan Patlaması */
+        .blood-splat {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(180,0,0,0.9) 0%, rgba(80,0,0,0.5) 60%, transparent 100%);
+            animation: bloodSplat 0.6s ease-out forwards;
+        }
+        @keyframes bloodSplat {
+            0%   { transform: scale(0) rotate(0deg); opacity: 1; }
+            50%  { transform: scale(1.3) rotate(20deg); opacity: 0.9; }
+            100% { transform: scale(2) rotate(30deg); opacity: 0; }
+        }
+
+        /* Mermi İzi Vuruş İşareti */
+        .bullet-mark {
+            position: absolute;
+            width: 8px; height: 8px;
+            background: radial-gradient(circle, #ff8800 0%, #330000 100%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 3;
+            animation: markFade 5s ease-out forwards;
+        }
+        @keyframes markFade { 0% { opacity: 1; } 80% { opacity: 0.6; } 100% { opacity: 0; } }
+
+        /* Bıçak Equip Bildirimi */
+        #knife-equip-msg {
+            position: absolute;
+            bottom: 160px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #e6b800;
+            font-size: 22px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-shadow: 0 0 15px #e6b800, 2px 2px 0 #000;
+            z-index: 20;
+            text-align: center;
+        }
+
+        /* Hasar Aldığında Vignette Nabız */
+        #damage-vignette {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 3;
+            opacity: 0;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,0.5) 100%);
+            transition: opacity 0.15s;
+        }
+
+        /* Mermi zilesi (boş silah tıklatma) */
+        #empty-click-msg {
+            position: absolute;
+            bottom: 200px;
+            right: 60px;
+            color: #ff4444;
+            font-size: 16px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            pointer-events: none;
+            opacity: 0;
+            text-shadow: 2px 2px 0 #000;
+            z-index: 20;
+            transition: opacity 0.2s;
+        }
+
+        /* Öldürme Animasyon Overlay */
+        #kill-flash {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 6;
+            opacity: 0;
+            background: radial-gradient(ellipse at center, rgba(255,200,0,0.18) 0%, transparent 70%);
+            transition: opacity 0.08s;
+        }
     </style>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body oncontextmenu="return false;">
 
     <div id="blood-overlay"></div>
+
+    <!-- YENİ EKLENTİLER HTML -->
+    <div id="damage-vignette"></div>
+    <div id="kill-flash"></div>
+    <div id="kill-feed"></div>
+    <div id="knife-equip-msg">⚔ KARAMBIT AKTİF ⚔<br><span style="font-size:14px;color:#aaa">F: İNCELE · SOL TIK: KES</span></div>
+    <div id="empty-click-msg">🔴 MERMİ YOK — R: YENİLE</div>
 
     <div id="main-menu">
         <div class="menu-box">
@@ -153,6 +282,57 @@
             osc.start(); osc.stop(audioCtx.currentTime + 0.4);
         }
 
+        // ===== YENİ SES FONKSİYONLARI =====
+        function playEmptyClick() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            // Metal tık sesi - boş silah
+            const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.08, audioCtx.sampleRate);
+            const data = buf.getChannelData(0);
+            for(let i = 0; i < data.length; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.015));
+            }
+            const src = audioCtx.createBufferSource();
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'highpass'; filter.frequency.value = 2000;
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            src.buffer = buf; src.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+            src.start();
+        }
+
+        function playKnifeEquip() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            // Bıçak çekme sesi - metal sürtünme
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass'; filter.frequency.value = 3000; filter.Q.value = 0.5;
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(3500, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.18);
+            gainNode.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
+            osc.connect(filter); filter.connect(gainNode); gainNode.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playKill() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            // Öldürme sesi - dramatik bip
+            [0, 0.08, 0.16].forEach((t, i) => {
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.connect(g); g.connect(audioCtx.destination);
+                o.type = 'sine';
+                o.frequency.setValueAtTime([880, 1100, 1320][i], audioCtx.currentTime + t);
+                g.gain.setValueAtTime(0.4, audioCtx.currentTime + t);
+                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + t + 0.1);
+                o.start(audioCtx.currentTime + t);
+                o.stop(audioCtx.currentTime + t + 0.12);
+            });
+        }
+        // ===== YENİ SES FONKSİYONLARI BİTİŞ =====
+
         // --- 3D SAHNE & AÇIK HAVA ÇÖL HARİTASI ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB); 
@@ -211,6 +391,55 @@
         ramp2.position.set(30, 7.5, 0); ramp2.rotation.z = Math.PI / 6;
         ramp2.castShadow = true; ramp2.receiveShadow = true;
         scene.add(ramp2); mapMeshes.push(ramp2); wallMeshes.push(ramp2);
+
+        // ===== YENİ: GERÇEK HARİTA ELEMANLARI (Ek - Orijinal Kod Değiştirilmedi) =====
+        // Çöl Kayalıkları
+        const rockMat = new THREE.MeshStandardMaterial({ color: 0x7a6a55, roughness: 1.0 });
+        for(let i = 0; i < 40; i++) {
+            const rx = Math.random() * 6 + 2, ry = Math.random() * 5 + 2, rz = Math.random() * 6 + 2;
+            const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rx * 0.5), rockMat);
+            let px = (Math.random()-0.5)*500, pz = (Math.random()-0.5)*500;
+            if(Math.abs(px) < 50 && Math.abs(pz) < 50) px += 80;
+            rock.position.set(px, ry * 0.25, pz);
+            rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+            rock.castShadow = true; rock.receiveShadow = true;
+            scene.add(rock); mapMeshes.push(rock); wallMeshes.push(rock);
+        }
+        // Çöl kaktüsleri (silindirsel)
+        const cactusMat = new THREE.MeshStandardMaterial({ color: 0x4a7a3a, roughness: 0.8 });
+        for(let i = 0; i < 20; i++) {
+            let px = (Math.random()-0.5)*450, pz = (Math.random()-0.5)*450;
+            if(Math.abs(px) < 40 && Math.abs(pz) < 40) px += 90;
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 5, 6), cactusMat);
+            trunk.position.set(px, 2.5, pz); trunk.castShadow = true;
+            scene.add(trunk); mapMeshes.push(trunk); wallMeshes.push(trunk);
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 2.5, 6), cactusMat);
+            arm.position.set(px + 0.8, 4, pz); arm.rotation.z = Math.PI/3;
+            scene.add(arm);
+        }
+        // Harap bina duvarları
+        const ruinMat = new THREE.MeshStandardMaterial({ color: 0x9a8a70, roughness: 1.0 });
+        const ruinPositions = [[80,0,80],[80,0,-80],[-80,0,80],[-80,0,-80],[120,0,0],[0,0,120]];
+        ruinPositions.forEach(([rx,ry,rz]) => {
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(12, 8, 1.5), ruinMat);
+            wall.position.set(rx, 4, rz); wall.rotation.y = Math.random() * Math.PI;
+            wall.castShadow = true; wall.receiveShadow = true;
+            scene.add(wall); mapMeshes.push(wall); wallMeshes.push(wall);
+            // Bozuk duvar parçaları
+            const debris = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 1.5), ruinMat);
+            debris.position.set(rx + 7, 1, rz); debris.rotation.set(0.3, Math.random(), 0.2);
+            debris.castShadow = true; debris.receiveShadow = true;
+            scene.add(debris); mapMeshes.push(debris); wallMeshes.push(debris);
+        });
+        // Metal konteynerler
+        const containerMat = new THREE.MeshStandardMaterial({ color: 0x3a5a7a, roughness: 0.5, metalness: 0.4 });
+        [[30,0,90],[-50,0,60],[70,0,-50],[-90,0,-30]].forEach(([cx,cy,cz]) => {
+            const container = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 12), containerMat);
+            container.position.set(cx, 2, cz); container.rotation.y = Math.random() * Math.PI/2;
+            container.castShadow = true; container.receiveShadow = true;
+            scene.add(container); mapMeshes.push(container); wallMeshes.push(container);
+        });
+        // ===== YENİ HARİTA BİTİŞ =====
 
 
         // --- SİLAHLAR VE KARAMBIT TASARIMI ---
@@ -271,6 +500,11 @@
             // Çekiş Animasyonu (Karambit için daha havalı)
             if(key === 'knife') {
                 drawAnimTime = 0.4;
+                // YENİ: Bıçak equip sesi ve mesajı
+                playKnifeEquip();
+                const knifeMsg = document.getElementById('knife-equip-msg');
+                knifeMsg.style.opacity = 1;
+                setTimeout(() => { knifeMsg.style.opacity = 0; }, 2200);
             } else {
                 drawAnimTime = 0.2;
             }
@@ -288,6 +522,33 @@
             const tracer = new THREE.Line(geometry, tracerMat.clone());
             scene.add(tracer); activeTracers.push({ mesh: tracer, age: 0 });
         }
+
+        // ===== YENİ: DUVARDA MERMİ İZİ (3D Decal sistemi) =====
+        const bulletHoleMat = new THREE.MeshBasicMaterial({ color: 0x1a0a00, transparent: true, opacity: 0.85 });
+        const bulletHoles = [];
+        function createBulletHole(point, normal) {
+            if(currentWeaponKey === 'knife') return; // Bıçak iz bırakmaz
+            const size = currentWeaponKey === 'shotgun' ? 0.08 : 0.04;
+            const geo = new THREE.PlaneGeometry(size, size);
+            const hole = new THREE.Mesh(geo, bulletHoleMat.clone());
+            // Normalin yönüne göre yüzey üzerine koy
+            hole.position.copy(point).addScaledVector(normal, 0.01);
+            hole.lookAt(point.clone().addScaledVector(normal, 1));
+            // Etrafına duman halkası
+            const ringGeo = new THREE.RingGeometry(size * 0.6, size, 8);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x3a1a00, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.copy(hole.position).addScaledVector(normal, 0.002);
+            ring.lookAt(ring.position.clone().addScaledVector(normal, 1));
+            scene.add(hole); scene.add(ring);
+            bulletHoles.push({ hole, ring, age: 0, maxAge: 30 });
+            // Max 80 delik
+            if(bulletHoles.length > 80) {
+                const old = bulletHoles.shift();
+                scene.remove(old.hole); scene.remove(old.ring);
+            }
+        }
+        // ===== MERMİ İZİ BİTİŞ =====
 
         // --- HİTBOX VE KARAKTER ---
         function createPlayerModel(id) {
@@ -352,6 +613,38 @@
             }, w.reloadTime);
         }
 
+        // ===== YENİ: EKRAN TİTREME SİSTEMİ =====
+        let shakeIntensity = 0;
+        let shakeDuration = 0;
+        function triggerShake(intensity, duration) {
+            shakeIntensity = intensity;
+            shakeDuration = duration;
+        }
+
+        // ===== YENİ: ÖLDÜRMEFEEDİ =====
+        function showKillFeed(killerName, victimName, weapon) {
+            const feed = document.getElementById('kill-feed');
+            const entry = document.createElement('div');
+            entry.className = 'kill-entry';
+            const wIcons = { rifle: '🔫', pistol: '🔫', knife: '🔪', shotgun: '💥' };
+            entry.innerHTML = `<span class="you">${killerName}</span><span class="weapon-icon">${wIcons[weapon] || '🔫'}</span><span class="enemy">${victimName}</span>`;
+            feed.appendChild(entry);
+            setTimeout(() => { entry.style.opacity = '0'; setTimeout(() => { if(entry.parentNode) feed.removeChild(entry); }, 1000); }, 3500);
+        }
+
+        // ===== YENİ: KAN PATLAMASI EFEKTI =====
+        function spawnBloodSplat(screenX, screenY) {
+            for(let i = 0; i < 4; i++) {
+                const splat = document.createElement('div');
+                splat.className = 'blood-splat';
+                const size = Math.random() * 60 + 30;
+                const ox = (Math.random()-0.5)*80, oy = (Math.random()-0.5)*80;
+                splat.style.cssText = `left:${screenX + ox - size/2}px;top:${screenY + oy - size/2}px;width:${size}px;height:${size}px;`;
+                document.body.appendChild(splat);
+                setTimeout(() => { if(splat.parentNode) document.body.removeChild(splat); }, 700);
+            }
+        }
+
         // --- ATEŞ ETME ---
         const raycaster = new THREE.Raycaster();
         let isMouseDown = false;
@@ -374,6 +667,20 @@
             Object.values(otherPlayers).forEach(p => p.children.forEach(c => targetMeshes.push(c)));
 
             const intersects = raycaster.intersectObjects(targetMeshes);
+
+            // ===== YENİ: DUVARA ÇARPMA KONTROLÜ VE MERMİ İZİ =====
+            if(currentWeaponKey !== 'knife') {
+                const wallIntersects = raycaster.intersectObjects(wallMeshes.concat([floor]));
+                if(wallIntersects.length > 0) {
+                    const wallHit = wallIntersects[0];
+                    if(intersects.length === 0 || wallHit.distance < intersects[0].distance) {
+                        createBulletHole(wallHit.point, wallHit.face.normal.clone().transformDirection(wallHit.object.matrixWorld));
+                        endPt = wallHit.point;
+                    }
+                }
+            }
+            // ===== MERMİ İZİ BİTİŞ =====
+
             if (intersects.length > 0 && intersects[0].distance <= (w.range || 100)) {
                 const hitObj = intersects[0].object; const hitData = hitObj.userData;
                 endPt = intersects[0].point; 
@@ -386,6 +693,11 @@
                     socket.emit('hitEnemy', { targetId: hitData.playerId, damage: finalDamage });
                     
                     playSound('hitmarker');
+
+                    // ===== YENİ: KAN PATLAMASI VE EKRAN TİTREMESİ (hafif) =====
+                    spawnBloodSplat(window.innerWidth/2, window.innerHeight/2);
+                    // ===== BİTİŞ =====
+
                     const chDots = document.querySelectorAll('.ch-line');
                     chDots.forEach(d => d.style.backgroundColor = (hitData.type === 'head') ? '#ff0000' : '#ffaa00');
                     setTimeout(() => { chDots.forEach(d => d.style.backgroundColor = '#fff'); }, 150);
@@ -401,7 +713,28 @@
             if (!controls.isLocked || gameState !== 'playing' || isReloading || drawAnimTime > 0 || isInspecting) return;
             const w = weapons[currentWeaponKey]; const timeNow = performance.now();
             if (timeNow - lastFireTime < w.fireRate) return;
-            if (w.ammo !== '∞' && w.ammo <= 0) { if(!isMouseDown) reloadWeapon(); isMouseDown = false; return; }
+
+            // ===== YENİ: BOŞ MERMİ ZİLESİ =====
+            if (w.ammo !== '∞' && w.ammo <= 0) {
+                if(!isMouseDown) reloadWeapon();
+                else {
+                    // Boş silah tıklama sesi
+                    if(timeNow - lastFireTime > 350) {
+                        playEmptyClick();
+                        lastFireTime = timeNow;
+                        // Ekranda "boş" uyarısı
+                        const emptyMsg = document.getElementById('empty-click-msg');
+                        emptyMsg.style.opacity = 1;
+                        clearTimeout(emptyMsg._timer);
+                        emptyMsg._timer = setTimeout(() => { emptyMsg.style.opacity = 0; }, 900);
+                        // Silahı hafif titret
+                        weaponModel.position.z = 0.08;
+                    }
+                    isMouseDown = false;
+                }
+                return;
+            }
+            // ===== BOŞ MERMİ ZİLESİ BİTİŞ =====
 
             lastFireTime = timeNow; 
             if (w.ammo !== '∞') w.ammo--; 
@@ -419,6 +752,10 @@
             currentVisualRecoil += w.visualRecoil * (isAiming ? 0.5 : 1);
             currentKickback += w.kickback * (isAiming ? 0.5 : 1);
             crosshairSpread += 18; 
+
+            // ===== YENİ: ATEŞ EDİNCE HAFİF EKRAN TİTREMESİ =====
+            triggerShake(currentWeaponKey === 'shotgun' ? 3 : (currentWeaponKey === 'pistol' ? 1.5 : 0.8), 0.12);
+            // ===== BİTİŞ =====
 
             socket.emit('shoot', currentWeaponKey);
 
@@ -472,6 +809,12 @@
                 document.getElementById('health-bar').style.width = myHealth + '%';
                 if(myHealth < 40) document.getElementById('health-bar').style.backgroundColor = '#ff0044'; else document.getElementById('health-bar').style.backgroundColor = '#00ffcc';
                 const blood = document.getElementById('blood-overlay'); blood.style.opacity = 1; setTimeout(() => { blood.style.opacity = 0; }, 300);
+
+                // ===== YENİ: HASAR VIGNETTE + EKRAN TİTREMESİ =====
+                document.getElementById('damage-vignette').style.opacity = 1;
+                triggerShake(5, 0.3);
+                setTimeout(() => { document.getElementById('damage-vignette').style.opacity = 0; }, 400);
+                // ===== BİTİŞ =====
             }
         });
 
@@ -497,6 +840,28 @@
                     if(timer <= 0) { clearInterval(countdown); timerEl.innerText = "YENİDEN KONUŞLANMAYA HAZIR"; document.getElementById('btn-respawn').style.display = 'block'; }
                 }, 1000);
             } else if(otherPlayers[data.victim]) { scene.remove(otherPlayers[data.victim]); delete otherPlayers[data.victim]; }
+
+            // ===== YENİ: ÖLDÜRMEFEEDİ VE EFEKTLER =====
+            if(data.killer === socket.id) {
+                playKill();
+                // Kill flash (altın ışık)
+                const kFlash = document.getElementById('kill-flash');
+                kFlash.style.opacity = 1;
+                setTimeout(() => { kFlash.style.opacity = 0; }, 200);
+                // Kill feed
+                const killerName = 'Sen';
+                const victimName = 'Ajan ' + (data.victim ? data.victim.substring(0,4) : '????');
+                showKillFeed(killerName, victimName, data.weapon || currentWeaponKey);
+                // Büyük kan patlaması
+                spawnBloodSplat(window.innerWidth/2, window.innerHeight/2);
+                spawnBloodSplat(window.innerWidth/2 + 60, window.innerHeight/2 - 40);
+            } else if(data.killer && data.victim !== socket.id) {
+                // Başka birini öldürdüğünde de feed göster
+                const kName = 'Ajan ' + (data.killer ? data.killer.substring(0,4) : '????');
+                const vName = 'Ajan ' + (data.victim ? data.victim.substring(0,4) : '????');
+                showKillFeed(kName, vName, data.weapon || 'rifle');
+            }
+            // ===== ÖLDÜRMEFEEDİ BİTİŞ =====
         });
 
         socket.on('playerRespawn', (p) => {
@@ -522,6 +887,10 @@
 
         let prevTime = performance.now(); let bobTime = 0; let lastFootstepTime = 0;
 
+        // ===== YENİ: EKRAN TİTREME UYGULAMA =====
+        let shakeTimer = 0;
+        // ===== BİTİŞ =====
+
         function animate() {
             requestAnimationFrame(animate);
             const time = performance.now(); const delta = (time - prevTime) / 1000;
@@ -530,6 +899,30 @@
                 const t = activeTracers[i]; t.age += delta; t.mesh.material.opacity = 1 - (t.age / 0.1); 
                 if(t.age > 0.1) { scene.remove(t.mesh); activeTracers.splice(i, 1); }
             }
+
+            // ===== YENİ: MERMİ İZİ FADE =====
+            for(let i = bulletHoles.length - 1; i >= 0; i--) {
+                const bh = bulletHoles[i]; bh.age += delta;
+                if(bh.age > bh.maxAge * 0.8) {
+                    const fadeRatio = 1 - ((bh.age - bh.maxAge * 0.8) / (bh.maxAge * 0.2));
+                    bh.hole.material.opacity = 0.85 * fadeRatio;
+                    bh.ring.material.opacity = 0.4 * fadeRatio;
+                }
+                if(bh.age > bh.maxAge) { scene.remove(bh.hole); scene.remove(bh.ring); bulletHoles.splice(i, 1); }
+            }
+            // ===== BİTİŞ =====
+
+            // ===== YENİ: EKRAN TİTREMESİ UYGULA =====
+            if(shakeDuration > 0) {
+                shakeDuration -= delta;
+                const sx = (Math.random()-0.5) * shakeIntensity;
+                const sy = (Math.random()-0.5) * shakeIntensity;
+                renderer.domElement.style.transform = `translate(${sx}px, ${sy}px)`;
+            } else {
+                renderer.domElement.style.transform = 'translate(0,0)';
+                shakeIntensity = 0;
+            }
+            // ===== BİTİŞ =====
 
             if (myHealth < 100 && myHealth > 0 && gameState === 'playing' && (time - lastDamageTime > 5000)) {
                 myHealth += 5 * delta; if(myHealth > 100) myHealth = 100;
