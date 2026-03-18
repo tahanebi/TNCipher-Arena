@@ -449,12 +449,22 @@ document.addEventListener('pointerlockchange',()=>{
     ['xhair','hud-hp','hud-ammo','ping-hud','mode-hud'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='block';});
   }
   if(!isLocked&&gameState==='playing'){
-    document.getElementById('menu').style.display='flex';
-    ['xhair','hud-hp','hud-ammo'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-    gameState='menu';
-    // Tuşları sıfırla
-    Object.keys(keys).forEach(k=>keys[k]=false);isMouseDown=false;
+    // ALT-TAB veya başka sebeple lock kayboldu
+    // MENÜ AÇILMAZ — oyun arka planda devam eder
+    // Sadece tuşları sıfırla, takılı kalmasın
+    Object.keys(keys).forEach(k=>keys[k]=false);
+    isMouseDown=false;
+    // Kullanıcı tıklayınca otomatik geri al
+    const relock=()=>{
+      if(gameState==='playing'){ document.body.requestPointerLock(); }
+      document.removeEventListener('click',relock);
+    };
+    document.addEventListener('click',relock,{once:true});
   }
+});
+// Visibility change — tab gizlenince tuşları sıfırla
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ Object.keys(keys).forEach(k=>keys[k]=false); isMouseDown=false; }
 });
 
 document.addEventListener('mousemove',e=>{
@@ -1237,55 +1247,191 @@ function animate(){
     if(d.hpBar)updateHpBar(d.hpBar,d.hp,d.maxHp);
   });
 
-  // Diğer oyuncu animasyonu - Full skeletal
+  // ─── 3. ŞAHIS ANİMASYON — ULTRA SMOOTH ─────────────────────────
   Object.values(otherPlayers).forEach(op=>{
     const ud=op.userData;if(!ud.pelvis)return;
-    const dist=op.position.distanceTo(ud.prevPos);ud.prevPos.copy(op.position);
-    ud.smoothSpeed=THREE.MathUtils.lerp(ud.smoothSpeed||0,dist/dt,.1);
-    const spd=ud.smoothSpeed,mv=spd>.08,sp=spd>7,cr=ud.crouching;
-    if(mv)ud.walkT+=dt*(sp?22:14);ud.idleT+=dt*1.2;
-    // Yaw
+
+    // Hız hesaplama — smooth, jitter yok
+    const rawDist=op.position.distanceTo(ud.prevPos);
+    ud.prevPos.copy(op.position);
+    const rawSpd=rawDist/Math.max(dt,.001);
+    ud.smoothSpeed=THREE.MathUtils.lerp(ud.smoothSpeed||0,rawSpd,.14);
+    const spd=ud.smoothSpeed;
+    const mv=spd>.12;         // hareket ediyor mu
+    const sp=spd>6.5;         // koşuyor mu
+    const cr=ud.crouching||false;
+    const lean=ud.leanAngle||0;
+    const pitch=ud.pitchAngle||0;
+
+    // Zaman
+    if(mv) ud.walkT+=dt*(sp?20:13);
+    ud.idleT+=dt*1.1;
+    const wt=ud.walkT,it=ud.idleT;
+
+    // ── YAW — smooth döniş ──────────────────────────────────────
     let dy=(ud.targetRot||0)-op.rotation.y;
-    while(dy>Math.PI)dy-=Math.PI*2;while(dy<-Math.PI)dy+=Math.PI*2;
-    op.rotation.y+=dy*.16;
-    // Lean
-    const tL=ud.leanAngle||0;
-    ud.pelvis.rotation.z=THREE.MathUtils.lerp(ud.pelvis.rotation.z||0,tL*.55,.1);
-    ud.spine.rotation.z=THREE.MathUtils.lerp(ud.spine.rotation.z||0,tL*.45,.1);
-    ud.neckG.rotation.z=THREE.MathUtils.lerp(ud.neckG.rotation.z||0,-tL*.28,.1);
-    // Pitch
-    const tP=ud.pitchAngle||0;
-    ud.spine.rotation.x=THREE.MathUtils.lerp(ud.spine.rotation.x||0,(cr?.17:sp?.1:0)+tP*.5+Math.sin(ud.idleT*.7)*.007,.08);
-    ud.neckG.rotation.x=THREE.MathUtils.lerp(ud.neckG.rotation.x||0,tP*.42,.1);
-    // Pelvis
-    const crY=cr?-.3:0;ud.pelvis.position.y=THREE.MathUtils.lerp(ud.pelvis.position.y,.9+crY,.1);
-    if(mv)ud.pelvis.position.y+=Math.sin(ud.walkT*2)*(sp?.035:.02);
-    // Bacaklar
-    const lH=mv?Math.sin(ud.walkT)*.75*(sp?1.22:1):(cr?.3:0),lK=mv?Math.max(0,-Math.sin(ud.walkT))*.62:(cr?.5:0);
-    ud.lHip.rotation.x=THREE.MathUtils.lerp(ud.lHip.rotation.x||0,lH,.18);ud.lKn.rotation.x=THREE.MathUtils.lerp(ud.lKn.rotation.x||0,lK,.18);
-    const rH=mv?Math.sin(ud.walkT+Math.PI)*.75*(sp?1.22:1):(cr?.3:0),rK=mv?Math.max(0,-Math.sin(ud.walkT+Math.PI))*.62:(cr?.5:0);
-    ud.rHip.rotation.x=THREE.MathUtils.lerp(ud.rHip.rotation.x||0,rH,.18);ud.rKn.rotation.x=THREE.MathUtils.lerp(ud.rKn.rotation.x||0,rK,.18);
-    // Kollar
-    const ap=tP*.48;
-    if(sp){ud.lSh.rotation.x=THREE.MathUtils.lerp(ud.lSh.rotation.x||0,Math.sin(ud.walkT+Math.PI)*.65,.18);ud.rSh.rotation.x=THREE.MathUtils.lerp(ud.rSh.rotation.x||0,Math.sin(ud.walkT)*.65,.18);ud.lEl.rotation.x=THREE.MathUtils.lerp(ud.lEl.rotation.x||0,Math.max(0,-Math.sin(ud.walkT+Math.PI))*.4,.18);ud.rEl.rotation.x=THREE.MathUtils.lerp(ud.rEl.rotation.x||0,Math.max(0,-Math.sin(ud.walkT))*.4,.18);}
-    else if(mv){ud.lSh.rotation.x=THREE.MathUtils.lerp(ud.lSh.rotation.x||0,-.3+Math.sin(ud.walkT+Math.PI)*.28+ap,.14);ud.rSh.rotation.x=THREE.MathUtils.lerp(ud.rSh.rotation.x||0,-.3+Math.sin(ud.walkT)*.28+ap,.14);ud.lEl.rotation.x=THREE.MathUtils.lerp(ud.lEl.rotation.x||0,.5+Math.max(0,-Math.sin(ud.walkT+Math.PI))*.28,.14);ud.rEl.rotation.x=THREE.MathUtils.lerp(ud.rEl.rotation.x||0,.5+Math.max(0,-Math.sin(ud.walkT))*.28,.14);}
-    else{const sw=Math.sin(ud.idleT*.5)*.01;ud.lSh.rotation.x=THREE.MathUtils.lerp(ud.lSh.rotation.x||0,-.48+sw+ap,.07);ud.rSh.rotation.x=THREE.MathUtils.lerp(ud.rSh.rotation.x||0,-.48-sw+ap,.07);ud.lSh.rotation.z=THREE.MathUtils.lerp(ud.lSh.rotation.z||0,.17,.07);ud.rSh.rotation.z=THREE.MathUtils.lerp(ud.rSh.rotation.z||0,-.17,.07);ud.lEl.rotation.x=THREE.MathUtils.lerp(ud.lEl.rotation.x||0,.6,.07);ud.rEl.rotation.x=THREE.MathUtils.lerp(ud.rEl.rotation.x||0,.6,.07);}
-    // Ateş animasyonu
-    if(ud.fireAnim>0){ud.fireAnim=Math.max(0,ud.fireAnim-dt);const k=ud.fireAnim/.18;ud.rSh.rotation.x=THREE.MathUtils.lerp(ud.rSh.rotation.x||0,(ud.rSh.rotation.x||0)-.3*k,.4);}
-    // Silah pozisyonu (sağ elde)
-    if(ud.wpnH){ud.wpnH.position.set(0,-.37,-.14);ud.wpnH.rotation.x=sp?.28:0;}
-    // Ölüm
-    if(ud.isDead){ud.pelvis.rotation.x=THREE.MathUtils.lerp(ud.pelvis.rotation.x||0,1.42,.05);ud.pelvis.position.y=THREE.MathUtils.lerp(ud.pelvis.position.y,.14,.05);}
-    // Vurus flash
-    if(ud.hitFlash>0){ud.hitFlash=Math.max(0,ud.hitFlash-dt);const fl=ud.hitFlash*4;op.traverse(c=>{if(c.isMesh&&c.material){c.material.emissive=new THREE.Color(fl*.45,0,0);c.material.emissiveIntensity=fl;}});}
-    else op.traverse(c=>{if(c.isMesh&&c.material&&(c.material.emissiveIntensity||0)>0)c.material.emissiveIntensity=THREE.MathUtils.lerp(c.material.emissiveIntensity,0,.12);});
-    // Yürüme sesi
-    if(mv&&canJump){ud.footstepT=(ud.footstepT||0)+dt;const si=sp?.3:.46;if(ud.footstepT>=si){ud.footstepT=0;const d3=op.position.distanceTo(yawObj.position);if(d3<40)SFX.footstepFar(Math.max(.018,.13*(1-d3/40)));}}else ud.footstepT=0;
-    // İsim etiketi + HP barı kameraya bak
-    if(ud.tag)ud.tag.quaternion.copy(camera.quaternion);
-    if(ud.hpBar){ud.hpBar.quaternion.copy(camera.quaternion);updateHpBar(ud.hpBar,ud.hp||100);}
-    // Spine.rotation.y
-    ud.spine.rotation.y=THREE.MathUtils.lerp(ud.spine.rotation.y||0,mv?Math.sin(ud.walkT)*.042:0,.1);
+    while(dy>Math.PI)dy-=Math.PI*2;
+    while(dy<-Math.PI)dy+=Math.PI*2;
+    op.rotation.y+=dy*Math.min(.22,dt*12); // frame-rate bağımsız
+
+    // ── PELVİS ─────────────────────────────────────────────────
+    // Çömelme/idle yükseklik
+    const targetPelvisY=cr?-.32:0;
+    ud.pelvis.position.y=THREE.MathUtils.lerp(ud.pelvis.position.y,.9+targetPelvisY,.14);
+    // Yürüme bob — sadece yatay düzlemde
+    if(mv) ud.pelvis.position.y+=Math.sin(wt*2)*(sp?.032:.018);
+    // Pelvis hafif yana sallanma (yürüyüş)
+    ud.pelvis.rotation.z=THREE.MathUtils.lerp(ud.pelvis.rotation.z||0,
+      lean*.5 + (mv?Math.sin(wt)*.022:0), .12);
+    ud.pelvis.rotation.y=THREE.MathUtils.lerp(ud.pelvis.rotation.y||0,
+      mv?Math.sin(wt)*.032:0, .1);
+
+    // ── OMURGA ─────────────────────────────────────────────────
+    // Pitch (yukarı/aşağı bakış) omurgaya yansır
+    const spineTargetX=(cr?.16:sp?.09:0) + pitch*.52 + Math.sin(it*.65)*.006;
+    ud.spine.rotation.x=THREE.MathUtils.lerp(ud.spine.rotation.x||0,spineTargetX,.09);
+    // Lean omurgaya
+    ud.spine.rotation.z=THREE.MathUtils.lerp(ud.spine.rotation.z||0,lean*.42,.12);
+    // Yürüme omurga sağa/sola
+    ud.spine.rotation.y=THREE.MathUtils.lerp(ud.spine.rotation.y||0,
+      mv?Math.sin(wt)*.038:0, .1);
+
+    // ── BOYUN/KAFA ──────────────────────────────────────────────
+    // Kafa pitch — aiming yönüne bakıyor gibi
+    ud.neckG.rotation.x=THREE.MathUtils.lerp(ud.neckG.rotation.x||0,pitch*.44,.12);
+    // Kafa lean telafisi (baş dik kalır)
+    ud.neckG.rotation.z=THREE.MathUtils.lerp(ud.neckG.rotation.z||0,-lean*.3,.12);
+    // Idle kafa micro-sway
+    ud.neckG.rotation.y=THREE.MathUtils.lerp(ud.neckG.rotation.y||0,
+      Math.sin(it*.38)*.014, .06);
+
+    // ── BACAKLAR — diz bükümü ile gerçekçi ─────────────────────
+    const lHipT=mv?Math.sin(wt)*.82*(sp?1.28:1):(cr?.35:0);
+    const lKnT =mv?Math.max(0,-Math.sin(wt))*.72*(sp?1.2:1):(cr?.58:0);
+    const rHipT=mv?Math.sin(wt+Math.PI)*.82*(sp?1.28:1):(cr?.35:0);
+    const rKnT =mv?Math.max(0,-Math.sin(wt+Math.PI))*.72*(sp?1.2:1):(cr?.58:0);
+    const legL=.2;
+    ud.lHip.rotation.x=THREE.MathUtils.lerp(ud.lHip.rotation.x||0,lHipT,legL);
+    ud.lKn.rotation.x =THREE.MathUtils.lerp(ud.lKn.rotation.x||0, lKnT, legL);
+    ud.rHip.rotation.x=THREE.MathUtils.lerp(ud.rHip.rotation.x||0,rHipT,legL);
+    ud.rKn.rotation.x =THREE.MathUtils.lerp(ud.rKn.rotation.x||0, rKnT, legL);
+    // Bacak yana açılma (çömelince)
+    ud.lHip.rotation.z=THREE.MathUtils.lerp(ud.lHip.rotation.z||0,cr?.08:0,.1);
+    ud.rHip.rotation.z=THREE.MathUtils.lerp(ud.rHip.rotation.z||0,cr?-.08:0,.1);
+
+    // ── KOLLAR — silah tutuşu ───────────────────────────────────
+    const pitchArm=pitch*.55; // kollar pitch'e göre yukari/aşağı
+    const shoulderL=.12;
+    if(sp){
+      // KOŞU — kollar büyük sallanma, silah aşağı iner
+      const lsT=Math.sin(wt+Math.PI)*.72;
+      const rsT=Math.sin(wt)*.72;
+      ud.lSh.rotation.x=THREE.MathUtils.lerp(ud.lSh.rotation.x||0,lsT,.2);
+      ud.rSh.rotation.x=THREE.MathUtils.lerp(ud.rSh.rotation.x||0,rsT,.2);
+      ud.lEl.rotation.x=THREE.MathUtils.lerp(ud.lEl.rotation.x||0,Math.max(0,-Math.sin(wt+Math.PI))*.5,.2);
+      ud.rEl.rotation.x=THREE.MathUtils.lerp(ud.rEl.rotation.x||0,Math.max(0,-Math.sin(wt))*.5,.2);
+      ud.lSh.rotation.z=THREE.MathUtils.lerp(ud.lSh.rotation.z||0,.12,.12);
+      ud.rSh.rotation.z=THREE.MathUtils.lerp(ud.rSh.rotation.z||0,-.12,.12);
+    } else if(mv){
+      // YÜRÜME — silah yukarıda, kollar hafif sallanan
+      const lsT=-.38+pitchArm+Math.sin(wt+Math.PI)*.22;
+      const rsT=-.38+pitchArm+Math.sin(wt)*.22;
+      ud.lSh.rotation.x=THREE.MathUtils.lerp(ud.lSh.rotation.x||0,lsT,shoulderL);
+      ud.rSh.rotation.x=THREE.MathUtils.lerp(ud.rSh.rotation.x||0,rsT,shoulderL);
+      ud.lEl.rotation.x=THREE.MathUtils.lerp(ud.lEl.rotation.x||0,.58+Math.max(0,-Math.sin(wt+Math.PI))*.24,shoulderL);
+      ud.rEl.rotation.x=THREE.MathUtils.lerp(ud.rEl.rotation.x||0,.58+Math.max(0,-Math.sin(wt))*.24,shoulderL);
+      ud.lSh.rotation.z=THREE.MathUtils.lerp(ud.lSh.rotation.z||0,.19+lean*.3,.1);
+      ud.rSh.rotation.z=THREE.MathUtils.lerp(ud.rSh.rotation.z||0,-.19+lean*.3,.1);
+    } else {
+      // IDLE — silah nişanda tutar gibi, asker tutumu
+      const idleSw=Math.sin(it*.52)*.008;
+      // Sol kol öne uzanmış, silahı destekliyor
+      ud.lSh.rotation.x=THREE.MathUtils.lerp(ud.lSh.rotation.x||0,-.52+pitchArm+idleSw,.08);
+      // Sağ kol tetik basıyor pozisyonu
+      ud.rSh.rotation.x=THREE.MathUtils.lerp(ud.rSh.rotation.x||0,-.48+pitchArm-idleSw,.08);
+      // Sol dirsek büküm — silahı alttan tutuyor
+      ud.lEl.rotation.x=THREE.MathUtils.lerp(ud.lEl.rotation.x||0,.68,.08);
+      // Sağ dirsek — daha az büküm
+      ud.rEl.rotation.x=THREE.MathUtils.lerp(ud.rEl.rotation.x||0,.55,.08);
+      // Omuz açısı — silah vücuda yakın
+      ud.lSh.rotation.z=THREE.MathUtils.lerp(ud.lSh.rotation.z||0,.22+lean*.35,.08);
+      ud.rSh.rotation.z=THREE.MathUtils.lerp(ud.rSh.rotation.z||0,-.16+lean*.35,.08);
+    }
+
+    // ── ATEŞ ANİMASYONU — geri tepme ───────────────────────────
+    if(ud.fireAnim>0){
+      ud.fireAnim=Math.max(0,ud.fireAnim-dt);
+      const kick=ud.fireAnim/.18;
+      // Sağ omuz geri tepiyor
+      ud.rSh.rotation.x+=-.35*kick;
+      // Sağ dirsek yukarı kalkıyor
+      ud.rEl.rotation.x+=.2*kick;
+      // Gövde hafif geri çekiliyor
+      ud.spine.rotation.x+=.05*kick;
+    }
+
+    // ── SİLAH TUTUŞU (wpnH) — asker stili ─────────────────────
+    if(ud.wpnH){
+      if(sp){
+        // Koşu: silah omza yükselir
+        ud.wpnH.position.set(0,-.28,-.08);
+        ud.wpnH.rotation.x=.35;
+        ud.wpnH.rotation.z=Math.sin(wt*.5)*.04;
+      } else if(cr){
+        // Çömelme: silah öne uzanır
+        ud.wpnH.position.set(0,-.34,-.22);
+        ud.wpnH.rotation.x=-.1;
+      } else {
+        // Normal: silah ileri nişanda
+        ud.wpnH.position.set(0,-.35,-.2);
+        ud.wpnH.rotation.x=THREE.MathUtils.lerp(ud.wpnH.rotation.x||0,0,.12);
+        ud.wpnH.rotation.z=THREE.MathUtils.lerp(ud.wpnH.rotation.z||0,0,.12);
+      }
+    }
+
+    // ── ÖLÜM ANİMASYONU ─────────────────────────────────────────
+    if(ud.isDead){
+      ud.pelvis.rotation.x=THREE.MathUtils.lerp(ud.pelvis.rotation.x||0,1.45,.06);
+      ud.pelvis.position.y=THREE.MathUtils.lerp(ud.pelvis.position.y,.12,.06);
+      // Kollar yere düşer
+      ud.lSh.rotation.x=THREE.MathUtils.lerp(ud.lSh.rotation.x||0,.8,.05);
+      ud.rSh.rotation.x=THREE.MathUtils.lerp(ud.rSh.rotation.x||0,.8,.05);
+    }
+
+    // ── VURUS FLASH ─────────────────────────────────────────────
+    if(ud.hitFlash>0){
+      ud.hitFlash=Math.max(0,ud.hitFlash-dt);
+      const fl=ud.hitFlash*5;
+      op.traverse(c=>{
+        if(c.isMesh&&c.material&&c.material.color){
+          c.material.emissive=new THREE.Color(fl*.5,0,0);
+          c.material.emissiveIntensity=fl;
+        }
+      });
+    } else {
+      op.traverse(c=>{
+        if(c.isMesh&&c.material&&(c.material.emissiveIntensity||0)>0)
+          c.material.emissiveIntensity=THREE.MathUtils.lerp(c.material.emissiveIntensity,0,.14);
+      });
+    }
+
+    // ── YÜRÜME SESİ — uzaktan duyulsun ─────────────────────────
+    if(mv&&canJump){
+      ud.footstepT=(ud.footstepT||0)+dt;
+      const si=sp?.28:.44;
+      if(ud.footstepT>=si){
+        ud.footstepT=0;
+        const d3=op.position.distanceTo(yawObj.position);
+        if(d3<40) SFX.footstepFar(Math.max(.015,.12*(1-d3/40)));
+      }
+    } else ud.footstepT=0;
+
+    // ── İSİM + HP BARI kameraya bak ─────────────────────────────
+    if(ud.tag) ud.tag.quaternion.copy(camera.quaternion);
+    if(ud.hpBar){
+      ud.hpBar.quaternion.copy(camera.quaternion);
+      updateHpBar(ud.hpBar,ud.hp||100);
+    }
   });
 
   // OYUNCU FİZİĞİ
