@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>TN Cipher | Beta v0.9</title>
+<script src="/socket.io/socket.io.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 :root { --gold:#e6b800; --red:#ff0044; --cyan:#00ffcc; }
@@ -305,8 +306,35 @@ window.addEventListener('error', e => {
 import * as THREE from 'https://esm.sh/three@0.136.0';
 
 /* ── SOCKET (dummy fallback) ── */
+// ESC — kasıtlı menü açma
+document.addEventListener('keydown', e => {
+  if(e.code === 'Escape' && gameState === 'playing') {
+    gameState = 'menu';
+    document.exitPointerLock();
+    document.getElementById('main-menu').style.display = 'flex';
+    ['crosshair','hud','ammo-display'].forEach(id => document.getElementById(id).style.display = 'none');
+  }
+});
+
+/* ── SOCKET — render platformu veya lokal ── */
 let socket;
-try{ socket=io(); }catch(e){ socket={emit:()=>{},on:()=>{},id:'LOC_'+Math.random().toString(36).slice(2,6)}; }
+// socket.io script varsa kullan, yoksa dummy
+if(typeof io !== 'undefined') {
+  try {
+    socket = io();
+    console.log('[TN] Socket.io bağlandı:', socket.id);
+  } catch(e) {
+    console.warn('[TN] Socket.io hatası, dummy kullanılıyor');
+    socket = {emit:()=>{}, on:()=>{}, id:'ERR_'+Math.random().toString(36).slice(2,6)};
+  }
+} else {
+  console.log('[TN] Socket.io yok, tek oyunculu mod');
+  socket = {
+    emit:()=>{},
+    on:()=>{},
+    id: 'P1_'+Math.random().toString(36).slice(2,8).toUpperCase()
+  };
+}
 
 /* ── STATE ── */
 let myHealth=100, gameState='menu', isTestRange=false;
@@ -373,6 +401,18 @@ function playSound(type){
   playTone(type==='rifle'?150:110,'sawtooth',.15,.4,.01);
 }
 
+// Uzaktan gelen yürüme sesi (ses şiddeti mesafeye göre)
+function playFootstepAt(vol){
+  if(AC.state==='suspended')AC.resume();
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.connect(g);g.connect(AC.destination);
+  o.type='triangle';
+  o.frequency.setValueAtTime(42+Math.random()*18,AC.currentTime);
+  g.gain.setValueAtTime(vol,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.12);
+  o.start();o.stop(AC.currentTime+.13);
+}
+
 /* ── SAHNE ── */
 const scene=new THREE.Scene();
 // Gradient skybox
@@ -402,7 +442,9 @@ sun.shadow.camera.top=sun.shadow.camera.right=250;
 sun.shadow.camera.bottom=sun.shadow.camera.left=-250;
 sun.shadow.mapSize.setScalar(2048);
 scene.add(sun);
-scene.add(Object.assign(new THREE.DirectionalLight(0x6090ff,.25),{position:new THREE.Vector3(-100,50,-100)}));
+const fillLight=new THREE.DirectionalLight(0x6090ff,.25);
+fillLight.position.set(-100,50,-100);
+scene.add(fillLight);
 
 /* ── KAMERA HİYERARŞİSİ ── */
 // yaw (Y dönüşü) → pitch (X dönüşü) → roll (Z eğilme) → camera
@@ -418,15 +460,38 @@ yawObj.position.set(0,2,0);
 let isLocked=false, pitchAngle=0;
 
 /* ── POINTER LOCK ── */
+// Tab değişince pointer lock açılır ama oyun DEVAM EDER
+// Sadece ESC tuşu menüyü açar
+let wasPlayingBeforeHidden = false;
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden && gameState==='playing') {
+    wasPlayingBeforeHidden = true;
+    // Tuşları sıfırla — tab'da basılı kalan tuşlar takılmasın
+    Object.keys(keys).forEach(k => keys[k]=false);
+    isMouseDown = false;
+  }
+});
+
 document.addEventListener('pointerlockchange',()=>{
+  const prev = isLocked;
   isLocked=!!document.pointerLockElement;
   if(isLocked&&gameState==='playing'){
     ['crosshair','hud','ammo-display'].forEach(id=>document.getElementById(id).style.display='block');
   }
-  if(!isLocked&&gameState==='playing'){
-    document.getElementById('main-menu').style.display='flex';
-    ['crosshair','hud','ammo-display'].forEach(id=>document.getElementById(id).style.display='none');
-    gameState='menu';
+  // Pointer lock kaybında menü AÇMA — sadece oyun devam etsin
+  // Kullanıcı tab'a tıkladı veya başka şey — menü açılmaz
+  if(!isLocked&&prev&&gameState==='playing'){
+    // HUD gizleme YOK, menü YOK — oyun arka planda çalışmaya devam eder
+    // Sadece crosshair gizle (lock olmadan nişan anlamsız)
+    document.getElementById('crosshair').style.display='none';
+    // Tekrar tıklayınca otomatik lock al
+    document.addEventListener('click', function relockHandler(){
+      if(gameState==='playing'){
+        document.body.requestPointerLock();
+        document.getElementById('crosshair').style.display='block';
+      }
+      document.removeEventListener('click', relockHandler);
+    }, {once: true});
   }
 });
 
@@ -539,7 +604,8 @@ for(let d=5;d<=35;d+=5){
   const geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-25,.02,-d),new THREE.Vector3(25,.02,-d)]);
   testGroup.add(new THREE.Line(geo,new THREE.LineBasicMaterial({color:0xffff00,transparent:true,opacity:.3})));
 }
-testGroup.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(60,.3,5),new THREE.MeshStandardMaterial({color:0x4a3a2a,roughness:1})),{receiveShadow:true}));
+const testFloor=new THREE.Mesh(new THREE.BoxGeometry(60,.3,5),new THREE.MeshStandardMaterial({color:0x4a3a2a,roughness:1}));
+testFloor.receiveShadow=true;testGroup.add(testFloor);
 const backWall=new THREE.Mesh(new THREE.BoxGeometry(60,7,.5),wallMat);backWall.position.set(0,3.5,-52);testGroup.add(backWall);
 
 /* ── SİLAH MODELLERİ ── */
@@ -555,7 +621,7 @@ const stM=new THREE.MeshStandardMaterial({color:0xcccccc,roughness:.05,metalness
 function makeWpn(type){
   const g=new THREE.Group();
   if(type==='rifle'){
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(.06,.14,.55),gmM)));
+    const rifleBody=new THREE.Mesh(new THREE.BoxGeometry(.06,.14,.55),gmM);g.add(rifleBody);
     const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.42),dkM);barrel.rotation.x=Math.PI/2;barrel.position.set(0,.03,-.47);g.add(barrel);
     const supp=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.12),dkM);supp.rotation.x=Math.PI/2;supp.position.set(0,.03,-.7);g.add(supp);
     const stock=new THREE.Mesh(new THREE.BoxGeometry(.05,.12,.25),dkM);stock.position.set(0,-.02,.4);g.add(stock);
@@ -652,22 +718,114 @@ function updateP(dt){
   pCtx.globalAlpha=1;
 }
 
-/* ── OYUNCU MODELİ (diğerleri) ── */
+/* ── OYUNCU MODELİ — PROCEDURAL SKELETAL ── */
 function makePlayerModel(id){
   const g=new THREE.Group();
-  const bm=new THREE.MeshStandardMaterial({color:0x3a5a2a,roughness:.8});
-  const hm=new THREE.MeshStandardMaterial({color:0xffccaa});
-  const helm=new THREE.MeshStandardMaterial({color:0x2a3a20,roughness:.5,metalness:.2});
-  const body=new THREE.Mesh(new THREE.BoxGeometry(.7,1.1,.4),bm);body.position.y=1.35;body.castShadow=true;body.userData={playerId:id,part:'body'};
-  const head=new THREE.Mesh(new THREE.BoxGeometry(.35,.4,.35),hm);head.position.y=2.1;head.castShadow=true;head.userData={playerId:id,part:'head'};
-  const helmetM=new THREE.Mesh(new THREE.BoxGeometry(.38,.2,.38),helm);helmetM.position.y=2.3;helmetM.castShadow=true;
-  const lleg=new THREE.Mesh(new THREE.BoxGeometry(.25,.8,.25),bm);lleg.position.set(-.2,.4,0);lleg.castShadow=true;lleg.userData={playerId:id,part:'leg'};
-  const rleg=new THREE.Mesh(new THREE.BoxGeometry(.25,.8,.25),bm);rleg.position.set(.2,.4,0);rleg.castShadow=true;rleg.userData={playerId:id,part:'leg'};
-  const larm=new THREE.Mesh(new THREE.BoxGeometry(.2,.75,.2),bm);larm.position.set(-.5,1.4,0);larm.castShadow=true;
-  const rarm=new THREE.Mesh(new THREE.BoxGeometry(.2,.75,.2),bm);rarm.position.set(.5,1.4,0);rarm.castShadow=true;
-  g.add(body,head,helmetM,lleg,rleg,larm,rarm);
-  g.userData={lleg,rleg,larm,rarm,walkT:0,prevPos:new THREE.Vector3(),id,bobT:0};
+  const bodyMat=new THREE.MeshStandardMaterial({color:0x3a5a2a,roughness:.75,metalness:.05});
+  const skinMat=new THREE.MeshStandardMaterial({color:0xffccaa,roughness:.8});
+  const helmMat=new THREE.MeshStandardMaterial({color:0x1e2e14,roughness:.5,metalness:.2});
+  const bootMat=new THREE.MeshStandardMaterial({color:0x2a1a0a,roughness:.9});
+  const gloveMat=new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:.6});
+
+  // Kemik hiyerarşisi
+  const pelvis=new THREE.Group();pelvis.position.y=.9;g.add(pelvis);
+  const hips=new THREE.Mesh(new THREE.BoxGeometry(.55,.22,.28),bodyMat);hips.castShadow=true;hips.userData={playerId:id,part:'leg'};pelvis.add(hips);
+
+  const spine=new THREE.Group();spine.position.y=.15;pelvis.add(spine);
+  const torso=new THREE.Mesh(new THREE.BoxGeometry(.65,1.0,.33),bodyMat);torso.position.y=.5;torso.castShadow=true;torso.userData={playerId:id,part:'body'};spine.add(torso);
+
+  const shoulders=new THREE.Group();shoulders.position.y=.98;spine.add(shoulders);
+
+  // Kafa
+  const neckG=new THREE.Group();shoulders.add(neckG);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.075,.09,.14,8),skinMat);neck.position.y=.07;neckG.add(neck);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.33,.37,.31),skinMat);head.position.y=.26;head.castShadow=true;head.userData={playerId:id,part:'head'};neckG.add(head);
+  const helm=new THREE.Mesh(new THREE.BoxGeometry(.36,.19,.34),helmMat);helm.position.y=.4;neckG.add(helm);
+  const visor=new THREE.Mesh(new THREE.BoxGeometry(.28,.06,.04),new THREE.MeshStandardMaterial({color:0x223344,roughness:.1,metalness:.8,transparent:true,opacity:.7}));visor.position.set(0,.3,.17);neckG.add(visor);
+
+  // Sol kol
+  const lShoulderG=new THREE.Group();lShoulderG.position.set(-.4,.0,0);shoulders.add(lShoulderG);
+  const lUpperArm=new THREE.Mesh(new THREE.CylinderGeometry(.095,.085,.36,8),bodyMat);lUpperArm.position.y=-.18;lUpperArm.castShadow=true;lShoulderG.add(lUpperArm);
+  const lElbowG=new THREE.Group();lElbowG.position.y=-.38;lShoulderG.add(lElbowG);
+  const lForearm=new THREE.Mesh(new THREE.CylinderGeometry(.085,.075,.32,8),bodyMat);lForearm.position.y=-.16;lForearm.castShadow=true;lElbowG.add(lForearm);
+  const lHand=new THREE.Mesh(new THREE.BoxGeometry(.09,.09,.13),gloveMat);lHand.position.y=-.36;lElbowG.add(lHand);
+
+  // Sag kol
+  const rShoulderG=new THREE.Group();rShoulderG.position.set(.4,.0,0);shoulders.add(rShoulderG);
+  const rUpperArm=new THREE.Mesh(new THREE.CylinderGeometry(.095,.085,.36,8),bodyMat);rUpperArm.position.y=-.18;rUpperArm.castShadow=true;rShoulderG.add(rUpperArm);
+  const rElbowG=new THREE.Group();rElbowG.position.y=-.38;rShoulderG.add(rElbowG);
+  const rForearm=new THREE.Mesh(new THREE.CylinderGeometry(.085,.075,.32,8),bodyMat);rForearm.position.y=-.16;rForearm.castShadow=true;rElbowG.add(rForearm);
+  const rHand=new THREE.Mesh(new THREE.BoxGeometry(.09,.09,.13),gloveMat);rHand.position.y=-.36;rElbowG.add(rHand);
+
+  // Sol bacak
+  const lHipG=new THREE.Group();lHipG.position.set(-.17,0,0);pelvis.add(lHipG);
+  const lThigh=new THREE.Mesh(new THREE.CylinderGeometry(.115,.105,.42,8),bodyMat);lThigh.position.y=-.21;lThigh.castShadow=true;lThigh.userData={playerId:id,part:'leg'};lHipG.add(lThigh);
+  const lKneeG=new THREE.Group();lKneeG.position.y=-.44;lHipG.add(lKneeG);
+  const lShin=new THREE.Mesh(new THREE.CylinderGeometry(.1,.09,.4,8),bodyMat);lShin.position.y=-.2;lShin.castShadow=true;lKneeG.add(lShin);
+  const lFoot=new THREE.Mesh(new THREE.BoxGeometry(.11,.09,.2),bootMat);lFoot.position.set(0,-.44,.04);lKneeG.add(lFoot);
+
+  // Sag bacak
+  const rHipG=new THREE.Group();rHipG.position.set(.17,0,0);pelvis.add(rHipG);
+  const rThigh=new THREE.Mesh(new THREE.CylinderGeometry(.115,.105,.42,8),bodyMat);rThigh.position.y=-.21;rThigh.castShadow=true;rThigh.userData={playerId:id,part:'leg'};rHipG.add(rThigh);
+  const rKneeG=new THREE.Group();rKneeG.position.y=-.44;rHipG.add(rKneeG);
+  const rShin=new THREE.Mesh(new THREE.CylinderGeometry(.1,.09,.4,8),bodyMat);rShin.position.y=-.2;rShin.castShadow=true;rKneeG.add(rShin);
+  const rFoot=new THREE.Mesh(new THREE.BoxGeometry(.11,.09,.2),bootMat);rFoot.position.set(0,-.44,.04);rKneeG.add(rFoot);
+
+  // Isim etiketi
+  const tag=makeNameTag(id.substring(0,6));tag.position.y=2.65;g.add(tag);
+
+  // Elde silah modeli (varsayılan: rifle)
+  const wpnHolder = new THREE.Group();
+  wpnHolder.position.set(0.45, -0.15, -0.4); // sağ elin önünde
+  rElbowG.add(wpnHolder);
+  const wpnBarrel = new THREE.Mesh(
+    new THREE.BoxGeometry(0.04, 0.06, 0.45),
+    new THREE.MeshStandardMaterial({color:0x222222, roughness:0.4, metalness:0.8})
+  );
+  wpnBarrel.position.set(0, 0, -0.15);
+  const wpnBody = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.12, 0.35),
+    new THREE.MeshStandardMaterial({color:0x2b2b2b, roughness:0.5, metalness:0.6})
+  );
+  const wpnMag = new THREE.Mesh(
+    new THREE.BoxGeometry(0.03, 0.14, 0.07),
+    new THREE.MeshStandardMaterial({color:0x111111, roughness:0.4, metalness:0.7})
+  );
+  wpnMag.position.set(0, -0.1, -0.02);
+  wpnHolder.add(wpnBody, wpnBarrel, wpnMag);
+
+  // Namlu ucu ışık noktası (ateş anında yanar)
+  const muzzlePoint = new THREE.Object3D();
+  muzzlePoint.position.set(0, 0, -0.45);
+  wpnHolder.add(muzzlePoint);
+
+  g.userData={
+    pelvis,spine,shoulders,neckG,
+    lShoulderG,lElbowG,rShoulderG,rElbowG,
+    lHipG,lKneeG,rHipG,rKneeG,
+    torso,head,tag,
+    wpnHolder,muzzlePoint,
+    walkT:0,idleT:0,
+    prevPos:new THREE.Vector3(),
+    smoothPos:new THREE.Vector3(),
+    targetRot:0,
+    speed:0,smoothSpeed:0,
+    crouching:false,sprinting:false,
+    hitFlash:0,isDead:false,
+    weapon:'rifle',fireAnim:0,
+    footstepT:0,
+    id,
+  };
   return g;
+}
+function makeNameTag(txt){
+  const c=document.createElement('canvas');c.width=256;c.height=48;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='rgba(0,0,0,.65)';ctx.roundRect(4,4,248,40,8);ctx.fill();
+  ctx.font='bold 20px monospace';ctx.fillStyle='#e6b800';ctx.textAlign='center';
+  ctx.fillText('Ajan '+txt,128,30);
+  const mat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false});
+  const s=new THREE.Sprite(mat);s.scale.set(1.4,.3,1);return s;
 }
 
 /* ── UI FONKS ── */
@@ -772,10 +930,10 @@ document.addEventListener('keydown',e=>{
     if(moving){
       isSliding=true;slideTimer=SLIDE_DUR;isCrouching=true;
       const yaw=yawObj.rotation.y;
-      if(keys['KeyA']) slideDirVec.set(-Math.cos(yaw),0,Math.sin(yaw));
-      else if(keys['KeyD']) slideDirVec.set(Math.cos(yaw),0,-Math.sin(yaw));
-      else if(keys['KeyS']) slideDirVec.set(-Math.sin(yaw),0,-Math.cos(yaw));
-      else slideDirVec.set(Math.sin(yaw),0,Math.cos(yaw));
+      if(keys['KeyA']) slideDirVec.set(Math.cos(yaw),0,-Math.sin(yaw));
+      else if(keys['KeyD']) slideDirVec.set(-Math.cos(yaw),0,Math.sin(yaw));
+      else if(keys['KeyS']) slideDirVec.set(Math.sin(yaw),0,Math.cos(yaw));
+      else slideDirVec.set(-Math.sin(yaw),0,-Math.cos(yaw));
       slideDirVec.normalize();slideSpd=18;
       playSound('slide');
       document.getElementById('slide-bar-wrap').style.display='block';
@@ -905,61 +1063,209 @@ const colRay=new THREE.Raycaster();
 const colDirs=[new THREE.Vector3(1,0,0),new THREE.Vector3(-1,0,0),new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,-1)];
 
 /* ── SOKETLER ── */
-socket.on('currentPlayers',ps=>Object.keys(ps).forEach(id=>{if(ps[id].playerId!==socket.id&&!ps[id].isDead)addPlayer(ps[id]);}));
-socket.on('newPlayer',p=>addPlayer(p));
-socket.on('playerMoved',p=>{if(otherPlayers[p.playerId]){const op=otherPlayers[p.playerId];op.position.set(p.x,p.y,p.z);op.userData.targetY=p.rotation;}});
-socket.on('healthUpdate',data=>{
-  if(data.id!==socket.id) return;
-  myHealth=data.health;lastDmgTime=performance.now();
-  document.getElementById('health-bar').style.width=myHealth+'%';
-  document.getElementById('health-num').innerText=Math.round(myHealth);
-  document.getElementById('health-bar').style.background=myHealth<40?'#ff0044':'#00ffcc';
-  document.getElementById('blood-overlay').style.opacity='1';setTimeout(()=>document.getElementById('blood-overlay').style.opacity='0',280);
-  document.getElementById('dmg-vignette').style.opacity='1';triggerShake(5,.3);setTimeout(()=>document.getElementById('dmg-vignette').style.opacity='0',480);
-  document.getElementById('suppression').style.opacity='.6';setTimeout(()=>document.getElementById('suppression').style.opacity='0',600);
-  spawnP(innerWidth/2+50,innerHeight/2,8,'#cc0000','blood');
-  showDmgDir(data.fromAngle||Math.random()*360);
+// Server'dan kendi ID'mizi al (eski server bunu göndermez — connect'te socket.id yeterli)
+socket.on('myId', id => {
+  console.log('[TN] myId alındı:', id);
+});
+
+socket.on('connect', () => {
+  console.log('[TN] Bağlandı, ID:', socket.id);
+});
+
+// currentPlayers — server tüm players objesini gönderiyor, key=socket.id
+socket.on('currentPlayers', ps => {
+  console.log('[TN] Mevcut oyuncular:', Object.keys(ps).length, '| Benim ID:', socket.id);
+  Object.keys(ps).forEach(id => {
+    if(id === socket.id) return;
+    if(otherPlayers[id]) return;
+    if(!ps[id].isDead) addPlayer(ps[id]);
+  });
+});
+
+// newPlayer — server players[socket.id] objesini gönderiyor (playerId alanı var)
+socket.on('newPlayer', p => {
+  if(p.playerId === socket.id) return;
+  if(otherPlayers[p.playerId]) return;
+  console.log('[TN] Yeni oyuncu:', p.playerId);
+  addPlayer(p);
+});
+
+// playerMoved — server players[socket.id] objesini gönderiyor (x,y,z,rotation,playerId içeriyor)
+socket.on('playerMoved', p => {
+  const op = otherPlayers[p.playerId];
+  if(!op) return;
+  op.position.set(p.x, p.y, p.z);
+  op.userData.targetRot = p.rotation || 0;
+  op.userData.crouching = p.crouching || false;
+  op.userData.sprinting = p.isSprinting || false;
+});
+
+// healthUpdate — server { id, health } gönderiyor
+socket.on('healthUpdate', data => {
+  if(data.id !== socket.id) return;
+  myHealth = data.health; lastDmgTime = performance.now();
+  document.getElementById('health-bar').style.width = myHealth + '%';
+  document.getElementById('health-num').innerText = Math.round(myHealth);
+  document.getElementById('health-bar').style.background = myHealth < 40 ? '#ff0044' : '#00ffcc';
+  document.getElementById('blood-overlay').style.opacity = '1';
+  setTimeout(() => document.getElementById('blood-overlay').style.opacity = '0', 280);
+  document.getElementById('dmg-vignette').style.opacity = '1';
+  triggerShake(5, .3);
+  setTimeout(() => document.getElementById('dmg-vignette').style.opacity = '0', 480);
+  document.getElementById('suppression').style.opacity = '.6';
+  setTimeout(() => document.getElementById('suppression').style.opacity = '0', 600);
+  spawnP(innerWidth/2+50, innerHeight/2, 8, '#cc0000', 'blood');
+  showDmgDir(Math.random() * 360); // server fromAngle göndermediği için rastgele
   updateDevPanel();
 });
-socket.on('updateScoreboard',obj=>{
-  const list=document.getElementById('score-list');list.innerHTML='';
-  Object.values(obj).sort((a,b)=>b.kills-a.kills).forEach(p=>{
-    const me=p.playerId===socket.id;const row=document.createElement('div');row.className='score-row';
-    row.innerHTML=`<span style="color:${me?'#e6b800':'#fff'}">Ajan ${p.playerId.substring(0,4)}${me?' (SEN)':''}</span><span>${p.kills}</span><span>${p.deaths}</span>`;
+
+// updateScoreboard — server players objesini gönderiyor
+socket.on('updateScoreboard', obj => {
+  const list = document.getElementById('score-list'); list.innerHTML = '';
+  Object.values(obj).sort((a,b) => b.kills - a.kills).forEach(p => {
+    const me = p.playerId === socket.id;
+    const row = document.createElement('div'); row.className = 'score-row';
+    row.innerHTML = `<span style="color:${me?'#e6b800':'#fff'}">Ajan ${p.playerId.substring(0,4)}${me?' (SEN)':''}</span><span>${p.kills}</span><span>${p.deaths}</span>`;
     list.appendChild(row);
   });
 });
-socket.on('playerDied',data=>{
-  if(data.victim===socket.id){
-    gameState='dead';document.exitPointerLock();
-    ['crosshair','hud','ammo-display'].forEach(id=>document.getElementById(id).style.display='none');
-    document.getElementById('main-menu').style.display='none';
-    document.getElementById('death-screen').style.display='flex';
-    document.getElementById('btn-respawn').style.display='none';
-    let t=4;const tel=document.getElementById('respawn-timer');tel.innerText=`SİNYAL ARANIYYOR... (${t})`;
-    const cd=setInterval(()=>{t--;tel.innerText=`SİNYAL ARANIYYOR... (${t})`;if(t<=0){clearInterval(cd);tel.innerText='YENİDEN KONUŞLANMAYA HAZIR';document.getElementById('btn-respawn').style.display='block';}},1000);
-  } else if(otherPlayers[data.victim]){scene.remove(otherPlayers[data.victim]);delete otherPlayers[data.victim];}
-  if(data.killer===socket.id){
-    playSound('kill');document.getElementById('kill-flash').style.opacity='1';setTimeout(()=>document.getElementById('kill-flash').style.opacity='0',180);
-    showKillFeed('Sen','Ajan '+(data.victim?.substring(0,4)||'????'),data.weapon||curWpn);
-  } else if(data.killer&&data.victim!==socket.id){
-    showKillFeed('Ajan '+(data.killer.substring(0,4)),'Ajan '+(data.victim?.substring(0,4)||'????'),data.weapon||'rifle');
+
+// playerDied — server { victim, killer } gönderiyor
+socket.on('playerDied', data => {
+  if(data.victim === socket.id) {
+    gameState = 'dead'; document.exitPointerLock();
+    ['crosshair','hud','ammo-display'].forEach(id => document.getElementById(id).style.display = 'none');
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('death-screen').style.display = 'flex';
+    document.getElementById('btn-respawn').style.display = 'none';
+    let t = 4;
+    const tel = document.getElementById('respawn-timer');
+    tel.innerText = `SİNYAL ARANIYYOR... (${t})`;
+    const cd = setInterval(() => {
+      t--; tel.innerText = `SİNYAL ARANIYYOR... (${t})`;
+      if(t <= 0) { clearInterval(cd); tel.innerText = 'YENİDEN KONUŞLANMAYA HAZIR'; document.getElementById('btn-respawn').style.display = 'block'; }
+    }, 1000);
+  } else if(otherPlayers[data.victim]) {
+    // Ölüm animasyonu — sahneden hemen silme, animasyon oynat
+    const op = otherPlayers[data.victim];
+    if(op.userData) op.userData.isDead = true;
+    setTimeout(() => { scene.remove(otherPlayers[data.victim]); delete otherPlayers[data.victim]; }, 3500);
+  }
+  if(data.killer === socket.id) {
+    playSound('kill');
+    document.getElementById('kill-flash').style.opacity = '1';
+    setTimeout(() => document.getElementById('kill-flash').style.opacity = '0', 180);
+    showKillFeed('Sen', 'Ajan ' + (data.victim?.substring(0,4) || '????'), curWpn);
+  } else if(data.killer && data.victim !== socket.id) {
+    showKillFeed('Ajan ' + data.killer.substring(0,4), 'Ajan ' + (data.victim?.substring(0,4) || '????'), 'rifle');
   }
 });
-socket.on('playerRespawn',p=>{
-  if(p.playerId===socket.id){
-    myHealth=100;document.getElementById('health-bar').style.width='100%';document.getElementById('health-bar').style.background='#00ffcc';document.getElementById('health-num').innerText='100';
-    yawObj.position.set(p.x,2,p.z);
-    Object.keys(WEAPONS).forEach(k=>{if(k!=='knife'){WEAPONS[k].ammo=WEAPONS[k].maxAmmo;}WEAPONS[k].totalAmmo=WEAPONS[k].maxAmmo*4;});updateAmmoUI();
-  } else addPlayer(p);
+
+// playerRespawn — server players[id] objesini gönderiyor
+socket.on('playerRespawn', p => {
+  if(p.playerId === socket.id) {
+    myHealth = 100;
+    document.getElementById('health-bar').style.width = '100%';
+    document.getElementById('health-bar').style.background = '#00ffcc';
+    document.getElementById('health-num').innerText = '100';
+    yawObj.position.set(p.x, 2, p.z);
+    Object.keys(WEAPONS).forEach(k => { if(k!=='knife') WEAPONS[k].ammo = WEAPONS[k].maxAmmo; WEAPONS[k].totalAmmo = WEAPONS[k].maxAmmo * 4; });
+    updateAmmoUI();
+  } else {
+    // Respawn olan düşmanı yeniden ekle
+    if(otherPlayers[p.playerId]) {
+      otherPlayers[p.playerId].position.set(p.x, p.y, p.z);
+      if(otherPlayers[p.playerId].userData) otherPlayers[p.playerId].userData.isDead = false;
+    } else {
+      addPlayer(p);
+    }
+  }
 });
-socket.on('enemyShoot',d=>playSound(d.weapon));
-socket.on('disconnectPlayer',id=>{if(otherPlayers[id]){scene.remove(otherPlayers[id]);delete otherPlayers[id];}});
+
+// enemyShoot — server { id, weapon } gönderiyor
+// Ses + görsel efektler
+socket.on('enemyShoot', d => {
+  const op = otherPlayers[d.id];
+  playSound(d.weapon); // 3D pozisyonel ses
+
+  if(op && op.userData) {
+    // Ateş eden silahı kaydet
+    op.userData.weapon = d.weapon;
+    op.userData.fireAnim = 0.15; // ateş animasyonu timer
+
+    // Namlu ışığı — düşman muzzle flash
+    const mLight = new THREE.PointLight(0xffaa00, 3, 8);
+    // Düşmanın bakış yönünden namluyu bul
+    const mPos = new THREE.Vector3();
+    op.getWorldPosition(mPos);
+    mPos.y += 1.5; // göğüs hizası
+    // Bakış yönüne göre namlu konumu
+    const fwd = new THREE.Vector3(
+      -Math.sin(op.rotation.y), 0, -Math.cos(op.rotation.y)
+    );
+    mPos.addScaledVector(fwd, 0.6);
+    mLight.position.copy(mPos);
+    scene.add(mLight);
+    setTimeout(() => scene.remove(mLight), 60);
+
+    // Mermi izi — düşmandan rastgele bir hedefe
+    if(d.weapon !== 'knife') {
+      const start = mPos.clone();
+      // İz yönü: düşmanın baktığı yöne doğru uzun çizgi
+      const end = start.clone().addScaledVector(fwd, d.weapon === 'shotgun' ? 40 : 120);
+      makeEnemyTracer(start, end, d.weapon);
+    }
+
+    // Pompalı için çoklu iz
+    if(d.weapon === 'shotgun') {
+      for(let i = 0; i < 5; i++) {
+        const start2 = mPos.clone();
+        const spread = new THREE.Vector3(
+          fwd.x + (Math.random()-.5)*.15,
+          (Math.random()-.5)*.08,
+          fwd.z + (Math.random()-.5)*.15
+        ).normalize();
+        makeEnemyTracer(start2, start2.clone().addScaledVector(spread, 35), d.weapon);
+      }
+    }
+  }
+});
+
+// Düşman mermi izi (farklı renk — kırmızımsı)
+const enemyTracers = [];
+function makeEnemyTracer(s, e, wpn) {
+  const geo = new THREE.BufferGeometry().setFromPoints([s, e]);
+  const mat = new THREE.LineBasicMaterial({
+    color: wpn === 'shotgun' ? 0xff6600 : 0xff3300,
+    transparent: true, opacity: 0.7
+  });
+  const l = new THREE.Line(geo, mat);
+  scene.add(l);
+  enemyTracers.push({m: l, age: 0});
+}
+
+// disconnectPlayer — server socket.id string gönderiyor
+socket.on('disconnectPlayer', id => {
+  if(otherPlayers[id]) { scene.remove(otherPlayers[id]); delete otherPlayers[id]; }
+});
 
 function addPlayer(p){
-  const m=makePlayerModel(p.playerId);m.position.set(p.x,p.y,p.z);
-  m.userData.prevPos=new THREE.Vector3(p.x,p.y,p.z);m.userData.targetY=0;
-  scene.add(m);otherPlayers[p.playerId]=m;
+  if(!p || !p.playerId) return;
+  if(otherPlayers[p.playerId]) {
+    // Zaten var — sadece pozisyonu güncelle
+    otherPlayers[p.playerId].position.set(p.x||0, p.y||0, p.z||0);
+    return;
+  }
+  console.log('[TN] Oyuncu ekleniyor:', p.playerId, 'pos:', p.x, p.y, p.z);
+  const m = makePlayerModel(p.playerId);
+  m.position.set(p.x||0, p.y||0, p.z||0);
+  m.userData.prevPos = new THREE.Vector3(p.x||0, p.y||0, p.z||0);
+  m.userData.smoothPos = new THREE.Vector3(p.x||0, p.y||0, p.z||0);
+  m.userData.targetRot = p.rotation || 0;
+  m.userData.smoothSpeed = 0;
+  scene.add(m);
+  otherPlayers[p.playerId] = m;
+  console.log('[TN] Sahnedeki oyuncu sayısı:', Object.keys(otherPlayers).length);
 }
 
 /* ── MINIMAP ── */
@@ -981,16 +1287,22 @@ function drawMinimap(){
   });
 }
 
-/* ── ANA DÖNGÜ ── */
+/* ── ANA DÖNGÜ — Tab'da da çalışır ── */
 let prevT=performance.now(),bobT=0,lastStep=0;
 let supLevel=0;
+let animFrameId=null;
 
 function animate(){
-  requestAnimationFrame(animate);
+  // requestAnimationFrame tab'da yavaşlar — ama biz yine de çağırıyoruz
+  // Fizik/network güncellemesi her koşulda devam eder
+  animFrameId=requestAnimationFrame(animate);
   const now=performance.now(),dt=Math.min((now-prevT)/1000,.05);prevT=now;
 
-  /* Tracer fade */
+  /* Tracer fade — kendi */
   for(let i=tracers.length-1;i>=0;i--){const t=tracers[i];t.age+=dt;t.m.material.opacity=1-t.age/.08;if(t.age>.08){scene.remove(t.m);tracers.splice(i,1);}}
+
+  /* Tracer fade — düşman (biraz daha uzun sürer) */
+  for(let i=enemyTracers.length-1;i>=0;i--){const t=enemyTracers[i];t.age+=dt;t.m.material.opacity=.7-t.age/.12;if(t.age>.12){scene.remove(t.m);enemyTracers.splice(i,1);}}
 
   /* Bullet hole fade */
   for(let i=holes.length-1;i>=0;i--){const h=holes[i];h.age+=dt;if(h.age>h.max*.75){const f=1-(h.age-h.max*.75)/(h.max*.25);h.h.material.opacity=.9*f;h.r.material.opacity=.45*f;}if(h.age>h.max){scene.remove(h.h);scene.remove(h.r);holes.splice(i,1);}}
@@ -1039,31 +1351,114 @@ function animate(){
     if(d.hitT>0){d.hitT-=dt;} 
   });
 
-  /* Diğer oyuncu animasyonu - smooth & CS tarzı */
+  /* Diger oyuncu animasyonu — procedural skeletal ultra smooth */
   Object.values(otherPlayers).forEach(op=>{
     const ud=op.userData;
-    const dist=op.position.distanceTo(ud.prevPos);ud.prevPos.copy(op.position);
-    // Smooth yaw dönüşü
-    if(ud.targetY!==undefined) op.rotation.y=THREE.MathUtils.lerp(op.rotation.y,ud.targetY,.15);
-    if(dist>.005){
-      ud.walkT+=dist*4;ud.bobT=(ud.bobT||0)+dt*14;
-      // Bacak animasyonu
-      ud.lleg.rotation.x=Math.sin(ud.walkT)*0.8;
-      ud.rleg.rotation.x=Math.sin(ud.walkT+Math.PI)*0.8;
-      // Kol sallanması - karşı yön
-      if(ud.larm)ud.larm.rotation.x=Math.sin(ud.walkT+Math.PI)*.6;
-      if(ud.rarm)ud.rarm.rotation.x=Math.sin(ud.walkT)*.6;
-      // Gövde hafif sallanma
-      op.children.forEach(c=>{if(c.userData.part==='body') c.position.y=1.35+Math.sin(ud.bobT)*.015;});
+    if(!ud.pelvis) return;
+    const dist=op.position.distanceTo(ud.prevPos);
+    ud.prevPos.copy(op.position);
+    const rawSpeed=dist/dt;
+    ud.smoothSpeed=THREE.MathUtils.lerp(ud.smoothSpeed||0,rawSpeed,.12);
+    const spd=ud.smoothSpeed;
+    const isMoving=spd>0.08;
+    const isSprint=spd>7;
+    const isCrouch=ud.crouching||false;
+    if(isMoving) ud.walkT+=dt*(isSprint?22:14);
+    ud.idleT+=dt*1.3;
+    // Smooth yaw
+    let dy=(ud.targetRot||0)-op.rotation.y;
+    while(dy>Math.PI)dy-=Math.PI*2;while(dy<-Math.PI)dy+=Math.PI*2;
+    op.rotation.y+=dy*.18;
+    // Pelvis bob
+    const crouchY=isCrouch?-.32:0;
+    ud.pelvis.position.y=THREE.MathUtils.lerp(ud.pelvis.position.y,.9+crouchY,.12);
+    if(isMoving) ud.pelvis.position.y+=Math.sin(ud.walkT*2)*(isSprint?.038:.022);
+    ud.pelvis.rotation.z=THREE.MathUtils.lerp(ud.pelvis.rotation.z,isMoving?Math.sin(ud.walkT)*.028:0,.1);
+    // Omurga
+    ud.spine.rotation.x=THREE.MathUtils.lerp(ud.spine.rotation.x,(isCrouch?.2:isSprint?.12:0)+Math.sin(ud.idleT*.7)*.01,.08);
+    ud.spine.rotation.y=THREE.MathUtils.lerp(ud.spine.rotation.y,isMoving?Math.sin(ud.walkT)*.055:0,.1);
+    // Sol bacak
+    const lH=isMoving?Math.sin(ud.walkT)*.78*(isSprint?1.25:1):(isCrouch?.32:0);
+    const lK=isMoving?Math.max(0,-Math.sin(ud.walkT))*.65:(isCrouch?.52:0);
+    ud.lHipG.rotation.x=THREE.MathUtils.lerp(ud.lHipG.rotation.x,lH,.2);
+    ud.lKneeG.rotation.x=THREE.MathUtils.lerp(ud.lKneeG.rotation.x,lK,.2);
+    // Sag bacak
+    const rH=isMoving?Math.sin(ud.walkT+Math.PI)*.78*(isSprint?1.25:1):(isCrouch?.32:0);
+    const rK=isMoving?Math.max(0,-Math.sin(ud.walkT+Math.PI))*.65:(isCrouch?.52:0);
+    ud.rHipG.rotation.x=THREE.MathUtils.lerp(ud.rHipG.rotation.x,rH,.2);
+    ud.rKneeG.rotation.x=THREE.MathUtils.lerp(ud.rKneeG.rotation.x,rK,.2);
+    // Kollar
+    if(isMoving){
+      ud.lShoulderG.rotation.x=THREE.MathUtils.lerp(ud.lShoulderG.rotation.x,Math.sin(ud.walkT+Math.PI)*.5*(isSprint?1.3:1),.2);
+      ud.rShoulderG.rotation.x=THREE.MathUtils.lerp(ud.rShoulderG.rotation.x,Math.sin(ud.walkT)*.5*(isSprint?1.3:1),.2);
+      ud.lElbowG.rotation.x=THREE.MathUtils.lerp(ud.lElbowG.rotation.x,Math.max(0,-Math.sin(ud.walkT+Math.PI))*.38,.2);
+      ud.rElbowG.rotation.x=THREE.MathUtils.lerp(ud.rElbowG.rotation.x,Math.max(0,-Math.sin(ud.walkT))*.38,.2);
+      ud.lShoulderG.rotation.z=THREE.MathUtils.lerp(ud.lShoulderG.rotation.z,0,.1);
+      ud.rShoulderG.rotation.z=THREE.MathUtils.lerp(ud.rShoulderG.rotation.z,0,.1);
     } else {
-      // Idle - nefes
-      ud.bobT=(ud.bobT||0)+dt*1.2;
-      ud.lleg.rotation.x=THREE.MathUtils.lerp(ud.lleg.rotation.x,0,.12);
-      ud.rleg.rotation.x=THREE.MathUtils.lerp(ud.rleg.rotation.x,0,.12);
-      if(ud.larm)ud.larm.rotation.x=THREE.MathUtils.lerp(ud.larm.rotation.x,Math.sin(ud.bobT)*.05,.1);
-      if(ud.rarm)ud.rarm.rotation.x=THREE.MathUtils.lerp(ud.rarm.rotation.x,Math.sin(ud.bobT+Math.PI)*.05,.1);
-      op.children.forEach(c=>{if(c.userData.part==='body') c.position.y=THREE.MathUtils.lerp(c.position.y,1.35+Math.sin(ud.bobT)*.012,.1);});
+      const sw=Math.sin(ud.idleT*.55)*.02;
+      ud.lShoulderG.rotation.x=THREE.MathUtils.lerp(ud.lShoulderG.rotation.x,-.45+sw,.07);
+      ud.rShoulderG.rotation.x=THREE.MathUtils.lerp(ud.rShoulderG.rotation.x,-.45-sw,.07);
+      ud.lShoulderG.rotation.z=THREE.MathUtils.lerp(ud.lShoulderG.rotation.z,.18,.07);
+      ud.rShoulderG.rotation.z=THREE.MathUtils.lerp(ud.rShoulderG.rotation.z,-.18,.07);
+      ud.lElbowG.rotation.x=THREE.MathUtils.lerp(ud.lElbowG.rotation.x,.55,.07);
+      ud.rElbowG.rotation.x=THREE.MathUtils.lerp(ud.rElbowG.rotation.x,.55,.07);
     }
+    // Kafa idle sway
+    ud.neckG.rotation.y=THREE.MathUtils.lerp(ud.neckG.rotation.y,Math.sin(ud.idleT*.4)*.018,.06);
+
+    // === ATEŞ ANİMASYONU ===
+    if(ud.fireAnim > 0) {
+      ud.fireAnim = Math.max(0, ud.fireAnim - dt);
+      const kick = ud.fireAnim / 0.15;
+      // Sağ kol geri tepiyor
+      ud.rShoulderG.rotation.x = THREE.MathUtils.lerp(ud.rShoulderG.rotation.x, -0.8 * kick, 0.35);
+      ud.rElbowG.rotation.x = THREE.MathUtils.lerp(ud.rElbowG.rotation.x, 0.3 * kick, 0.35);
+    }
+
+    // === SİLAH MODELİ GÜNCELLE (silah türüne göre renk/boyut) ===
+    if(ud.wpnHolder) {
+      // Silah pozisyonu — koşarken sağa çekilir, idle'da öne uzanır
+      if(isMoving) {
+        ud.wpnHolder.position.set(0.3, -0.1, -0.25);
+      } else {
+        ud.wpnHolder.position.set(0.45, -0.15, -0.4);
+      }
+    }
+
+    // === YÜRÜME SESİ — mesafeye göre ===
+    if(isMoving && canJump) {
+      ud.footstepT = (ud.footstepT || 0) + dt;
+      const stepInterval = isSprint ? 0.32 : 0.48;
+      if(ud.footstepT >= stepInterval) {
+        ud.footstepT = 0;
+        // Sadece yakındaki oyuncular için ses çal
+        const dist3d = op.position.distanceTo(yawObj.position);
+        if(dist3d < 40) {
+          // Mesafeye göre ses şiddeti (uzakta daha sessiz)
+          const vol = Math.max(0.02, 0.15 * (1 - dist3d/40));
+          playFootstepAt(vol);
+        }
+      }
+    } else {
+      ud.footstepT = 0;
+    }
+
+    // Olum animasyonu
+    if(ud.isDead){
+      ud.pelvis.rotation.x=THREE.MathUtils.lerp(ud.pelvis.rotation.x,1.45,.05);
+      ud.pelvis.position.y=THREE.MathUtils.lerp(ud.pelvis.position.y,.15,.05);
+    }
+    // Vurus flash
+    if(ud.hitFlash>0){
+      ud.hitFlash=Math.max(0,ud.hitFlash-dt);
+      const fl=ud.hitFlash*4;
+      op.traverse(c=>{if(c.isMesh&&c.material){c.material.emissive=new THREE.Color(fl*.5,0,0);c.material.emissiveIntensity=fl;}});
+    } else {
+      op.traverse(c=>{if(c.isMesh&&c.material&&c.material.emissiveIntensity>0)c.material.emissiveIntensity=THREE.MathUtils.lerp(c.material.emissiveIntensity,0,.15);});
+    }
+    // Isim etiketi kameraya bak
+    if(ud.tag) ud.tag.quaternion.copy(camera.quaternion);
   });
 
   if(isLocked&&gameState==='playing'){
@@ -1089,8 +1484,8 @@ function animate(){
     } else {
       // Normal hareket
       const yaw=yawObj.rotation.y;
-      const fwd=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));    // İLERİ yönü
-      const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));  // SAĞ yönü
+      const fwd=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+      const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
       let spd=isCrouching?4:isAiming?5:keys['ShiftLeft']&&(keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD'])?14:8;
       if(curWpn==='knife') spd*=1.25;
       const mv=new THREE.Vector3();
@@ -1204,7 +1599,15 @@ function animate(){
     document.getElementById('ch-r').style.left=`${cho+2}px`;
     document.getElementById('crosshair').style.opacity=isAiming?'0':'1';
 
-    socket.emit('playerMovement',{x:yawObj.position.x,y:yawObj.position.y-2,z:yawObj.position.z,rotation:yawObj.rotation.y});
+    const isSprinting=keys['ShiftLeft']&&(keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD'])&&!isAiming&&!isCrouching;
+    socket.emit('playerMovement',{
+      x:yawObj.position.x, y:yawObj.position.y-2, z:yawObj.position.z,
+      rotation:yawObj.rotation.y,
+      crouching:isCrouching||isSliding,
+      isSprinting,
+      weapon:curWpn,
+      isMoving:!!(keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD']),
+    });
     if(isTestRange) updateDevPanel();
   }
 
