@@ -171,7 +171,7 @@ body{ margin:0; overflow:hidden; background:#000; font-family:'Rajdhani',sans-se
 <!-- UI -->
 <div id="lean-ind">◀ EĞİL ▶</div>
 <div id="knife-msg">⚔ KARAMBIT AKTİF ⚔</div>
-<div id="empty-msg">◉ MERMİ YOK — [R]</div>
+<div id="empty-msg">◉ MERMİ YOK - [R]</div>
 <div id="mode-ind">MOD: <span id="mode-name">HARITA</span></div>
 <div id="scenario-txt"></div>
 
@@ -223,7 +223,7 @@ body{ margin:0; overflow:hidden; background:#000; font-family:'Rajdhani',sans-se
       <div class="ctrl-item"><span class="ctrl-key">SHIFT</span><span class="ctrl-desc">Koş</span></div>
       <div class="ctrl-item"><span class="ctrl-key">CTRL</span><span class="ctrl-desc">Çömel / Sekme</span></div>
       <div class="ctrl-item"><span class="ctrl-key">SPACE</span><span class="ctrl-desc">Zıpla</span></div>
-      <div class="ctrl-item"><span class="ctrl-key">1–4</span><span class="ctrl-desc">Silah Seç</span></div>
+      <div class="ctrl-item"><span class="ctrl-key">1-4</span><span class="ctrl-desc">Silah Seç</span></div>
       <div class="ctrl-item"><span class="ctrl-key">R</span><span class="ctrl-desc">Şarjör</span></div>
       <div class="ctrl-item"><span class="ctrl-key">Q / E</span><span class="ctrl-desc">Eğil</span></div>
       <div class="ctrl-item"><span class="ctrl-key">F</span><span class="ctrl-desc">İncele</span></div>
@@ -234,7 +234,7 @@ body{ margin:0; overflow:hidden; background:#000; font-family:'Rajdhani',sans-se
 
 <!-- DEV PANEL -->
 <div id="dev-panel">
-  <div id="dev-panel-title">⬡ TEST ATIŞ ALANI — GELİŞTİRİCİ MODU</div>
+  <div id="dev-panel-title">⬡ TEST ATIŞ ALANI - GELİŞTİRİCİ MODU</div>
   <div class="dev-grid">
     <div class="dev-stat"><div class="dev-stat-label">CAN</div><div class="dev-stat-val g" id="dp-hp">100</div></div>
     <div class="dev-stat"><div class="dev-stat-label">MERMİ</div><div class="dev-stat-val" id="dp-ammo">30/120</div></div>
@@ -297,7 +297,12 @@ body{ margin:0; overflow:hidden; background:#000; font-family:'Rajdhani',sans-se
 </script>
 
 <script type="module">
-import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+// Hata yakalama - yükleme başarısız olursa kullanıcıya göster
+window.addEventListener('error', e => {
+  document.body.innerHTML += `<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a0000;color:#ff4444;padding:30px;font-family:monospace;font-size:14px;border:1px solid #ff4444;z-index:9999;max-width:600px;text-align:center">YÜKLEME HATASI<br><br>${e.message}<br><br>İnternet bağlantınızı kontrol edin</div>`;
+});
+
+import * as THREE from 'https://esm.sh/three@0.136.0';
 
 /* ── SOCKET (dummy fallback) ── */
 let socket;
@@ -563,7 +568,7 @@ function makeWpn(type){
     const grip=new THREE.Mesh(new THREE.BoxGeometry(.045,.14,.07),new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:.6}));grip.position.set(0,-.1,.1);grip.rotation.x=.15;g.add(grip);
     const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.01,.01,.2),dkM);barrel.rotation.x=Math.PI/2;barrel.position.set(0,.02,-.22);g.add(barrel);
   }else if(type==='knife'){
-    // Karambit — düzgün tutuş
+    // Karambit - düzgün tutuş
     const handle=new THREE.Mesh(new THREE.CylinderGeometry(.013,.016,.1,8),new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:.4}));g.add(handle);
     const guard=new THREE.Mesh(new THREE.BoxGeometry(.05,.012,.015),dkM);guard.position.set(0,.06,0);g.add(guard);
     const ring=new THREE.Mesh(new THREE.TorusGeometry(.018,.006,8,16),new THREE.MeshStandardMaterial({color:0x444444,metalness:.8}));ring.position.set(0,-.07,0);g.add(ring);
@@ -574,7 +579,7 @@ function makeWpn(type){
       seg.position.set(Math.sin(ang)*.06,t*.1+.07,Math.cos(ang)*.02-.02);
       seg.rotation.z=ang;g.add(seg);
     }
-    // Tüm grubu düz tutan pozisyon — NİŞAN GİBİ YUKARI BAKSIN
+    // Tüm grubu düz tutan pozisyon - NİŞAN GİBİ YUKARI BAKSIN
     g.position.set(.02,-.1,.05);
     g.rotation.set(-.3,.15,.1);
   }else if(type==='shotgun'){
@@ -761,7 +766,7 @@ document.addEventListener('keydown',e=>{
   if(e.code==='Digit3') equipWeapon('knife');
   if(e.code==='Digit4') equipWeapon('shotgun');
   if(e.code==='KeyM'){const mm=document.getElementById('minimap');mm.style.display=mm.style.display==='block'?'none':'block';}
-  // SEKME — koşarken CTRL
+  // SEKME - koşarken CTRL
   if((e.code==='ControlLeft'||e.code==='ControlRight')&&!isSliding&&slideCool<=0&&keys['ShiftLeft']&&isLocked&&gameState==='playing'){
     const moving=keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD'];
     if(moving){
@@ -1009,7 +1014,7 @@ function animate(){
   dummyData.forEach(d=>{
     if(!d.alive){
       d.respawn-=dt;
-      // Ölüm animasyonu — öne devrilir
+      // Ölüm animasyonu - öne devrilir
       if(d.deathT>0){d.deathT-=dt;d.g.rotation.x=THREE.MathUtils.lerp(d.g.rotation.x,1.2,.08);}
       if(d.respawn<=0){
         d.alive=true;d.hp=d.maxHp;d.deathT=-1;
@@ -1034,7 +1039,7 @@ function animate(){
     if(d.hitT>0){d.hitT-=dt;} 
   });
 
-  /* Diğer oyuncu animasyonu — smooth & CS tarzı */
+  /* Diğer oyuncu animasyonu - smooth & CS tarzı */
   Object.values(otherPlayers).forEach(op=>{
     const ud=op.userData;
     const dist=op.position.distanceTo(ud.prevPos);ud.prevPos.copy(op.position);
@@ -1045,13 +1050,13 @@ function animate(){
       // Bacak animasyonu
       ud.lleg.rotation.x=Math.sin(ud.walkT)*0.8;
       ud.rleg.rotation.x=Math.sin(ud.walkT+Math.PI)*0.8;
-      // Kol sallanması — karşı yön
+      // Kol sallanması - karşı yön
       if(ud.larm)ud.larm.rotation.x=Math.sin(ud.walkT+Math.PI)*.6;
       if(ud.rarm)ud.rarm.rotation.x=Math.sin(ud.walkT)*.6;
       // Gövde hafif sallanma
       op.children.forEach(c=>{if(c.userData.part==='body') c.position.y=1.35+Math.sin(ud.bobT)*.015;});
     } else {
-      // Idle — nefes
+      // Idle - nefes
       ud.bobT=(ud.bobT||0)+dt*1.2;
       ud.lleg.rotation.x=THREE.MathUtils.lerp(ud.lleg.rotation.x,0,.12);
       ud.rleg.rotation.x=THREE.MathUtils.lerp(ud.rleg.rotation.x,0,.12);
@@ -1131,7 +1136,7 @@ function animate(){
     camera.fov=THREE.MathUtils.lerp(camera.fov,isAiming?WEAPONS[curWpn].adsZoom:75,.18);
     camera.updateProjectionMatrix();
 
-    /* Pitch — sekme dışında normale dön */
+    /* Pitch - sekme dışında normale dön */
     if(!isSliding) pitchObj.rotation.x=THREE.MathUtils.lerp(pitchObj.rotation.x,pitchAngle,.35);
 
     /* SILAH SWAY */
@@ -1161,7 +1166,7 @@ function animate(){
       wpnModel.rotation.y=THREE.MathUtils.lerp(wpnModel.rotation.y,visualRecoilX,.12);
       wpnModel.position.z=THREE.MathUtils.lerp(wpnModel.position.z,kickback,.12);
     } else if(!isInspecting&&curWpn==='knife'){
-      // Bıçak normale dön — orijinal rotasyonuna
+      // Bıçak normale dön - orijinal rotasyonuna
       wpnModel.rotation.x=THREE.MathUtils.lerp(wpnModel.rotation.x,0,.14);
       wpnModel.rotation.y=THREE.MathUtils.lerp(wpnModel.rotation.y,0,.14);
       wpnModel.rotation.z=THREE.MathUtils.lerp(wpnModel.rotation.z,0,.14);
