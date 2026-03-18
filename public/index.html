@@ -218,7 +218,7 @@ body{ margin:0; overflow:hidden; background:#000; font-family:'Rajdhani',sans-se
 <div id="scenario-txt"></div>
 
 <!-- Ping Barı -->
-<div id="ping-bar">
+<div id="ping-bar" style="display:block">
   <div id="ping-label">PİNG</div>
   <div id="ping-val" style="color:#00ffcc">-- ms</div>
   <div id="ping-dots">
@@ -724,7 +724,34 @@ const backWall=new THREE.Mesh(new THREE.BoxGeometry(60,7,.5),wallMat);backWall.p
 /* ── SİLAH MODELLERİ ── */
 const wpnContainer=new THREE.Group();camera.add(wpnContainer);
 const wpnModel=new THREE.Group();wpnContainer.add(wpnModel);
-const muzzleLight=new THREE.PointLight(0xffaa00,0,10);muzzleLight.position.set(0,0,-1);wpnContainer.add(muzzleLight);
+const muzzleLight=new THREE.PointLight(0xffaa00,0,10);
+// Namlu ucu — rifle için -0.8 (barrel uzunluğu kadar ileri)
+muzzleLight.position.set(0,0.035,-0.82);
+wpnContainer.add(muzzleLight);
+
+// Muzzle light'ı silah değişince güncelle
+function updateMuzzlePos(key){
+  const offsets={rifle:[0,.035,-.82],pistol:[0,.024,-.35],knife:[0,0,-.1],shotgun:[0,.042,-.76]};
+  const o=offsets[key]||offsets.rifle;
+  muzzleLight.position.set(o[0],o[1],o[2]);
+}
+
+// 1. ŞAHIS — Görünür kollar (kameranın alt kısmı)
+const armsGroup=new THREE.Group();camera.add(armsGroup);
+armsGroup.position.set(0,-.55,-.3);
+const armMat=new THREE.MeshStandardMaterial({color:0x3a5a2a,roughness:.8,metalness:.05});
+const skinMat1P=new THREE.MeshStandardMaterial({color:0xffccaa,roughness:.7});
+// Sağ ön kol
+const rForearm1P=new THREE.Mesh(new THREE.CylinderGeometry(.038,.042,.28,8),armMat);
+rForearm1P.rotation.x=Math.PI/2;rForearm1P.position.set(.18,-.02,-.05);armsGroup.add(rForearm1P);
+// Sol ön kol
+const lForearm1P=new THREE.Mesh(new THREE.CylinderGeometry(.038,.042,.28,8),armMat);
+lForearm1P.rotation.x=Math.PI/2;lForearm1P.position.set(-.05,-.02,-.05);armsGroup.add(lForearm1P);
+// Eldivenler
+const rGlove=new THREE.Mesh(new THREE.BoxGeometry(.055,.06,.1),new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:.6}));
+rGlove.position.set(.18,-.02,.09);armsGroup.add(rGlove);
+const lGlove=new THREE.Mesh(new THREE.BoxGeometry(.055,.06,.1),new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:.6}));
+lGlove.position.set(-.05,-.02,.09);armsGroup.add(lGlove);
 
 const dkM=new THREE.MeshStandardMaterial({color:0x111111,roughness:.2,metalness:.95});
 const gmM=new THREE.MeshStandardMaterial({color:0x2b2b2b,roughness:.35,metalness:.8});
@@ -770,8 +797,8 @@ function makeWpn(type){
   return g;
 }
 
-const BASE_POS=new THREE.Vector3(.32,-.32,-.52);
-const ADS_POS=new THREE.Vector3(0,-.13,-.28);
+const BASE_POS=new THREE.Vector3(.28,-.28,-.48);  // Asker tutuşu
+const ADS_POS=new THREE.Vector3(0,-.12,-.26);
 let targetWpnPos=BASE_POS.clone();
 
 function equipWeapon(key){
@@ -779,6 +806,7 @@ function equipWeapon(key){
   curWpn=key; wpnModel.clear();
   wpnModel.add(makeWpn(key));
   drawAnim=key==='knife'?.5:.3;
+  updateMuzzlePos(key);
   if(key==='knife'){
     playSound('knifeEquip');
     const km=document.getElementById('knife-msg');
@@ -1040,7 +1068,7 @@ function startGame(testMode=false){
   isTestRange=testMode;gameState='playing';
   document.getElementById('main-menu').style.display='none';
   document.getElementById('mode-ind').style.display='block';
-  document.getElementById('ping-bar').style.display='block';
+  document.getElementById('ping-bar').style.display='block'; // ping her zaman aktif
   measurePing();
   document.getElementById('mode-name').innerText=testMode?'TEST ALANI':'HARITA';
   if(testMode){
@@ -1119,8 +1147,15 @@ document.addEventListener('mouseup',e=>{
 const ray=new THREE.Raycaster();
 function doRaycast(w,spread=new THREE.Vector2()){
   ray.setFromCamera(spread,camera);
-  const start=camera.getWorldPosition(new THREE.Vector3());
   const maxRange=w.range||150;
+
+  // Tracer başlangıcı = namlu ucu (muzzleLight dünya pozisyonu)
+  // Bu sayede çizgi tam silahın ucundan çıkar
+  const muzzleWorldPos=new THREE.Vector3();
+  muzzleLight.getWorldPosition(muzzleWorldPos);
+
+  // Raycast yönü (kamera merkezinden — isabeti doğru hesaplar)
+  // End noktası raycast'in gerçek varış noktası olacak
   let end=ray.ray.at(maxRange,new THREE.Vector3());
 
   // Tüm hedef mesh'leri topla
@@ -1143,8 +1178,7 @@ function doRaycast(w,spread=new THREE.Vector2()){
     const isWall=wallMeshes.includes(obj)||obj===floor;
 
     if(isWall){
-      // DUVARA ÇARPTI — dur
-      end=hit.point;
+      end=hit.point; // Tam çarptığı nokta
       if(curWpn!=='knife'){
         const norm=hit.face.normal.clone().transformDirection(obj.matrixWorld);
         makeHole(hit.point,norm);
@@ -1155,7 +1189,7 @@ function doRaycast(w,spread=new THREE.Vector2()){
 
     // HEDEFE ÇARPTI (duvardan önce)
     const sx=innerWidth/2,sy=innerHeight/2;
-    end=hit.point;
+    end=hit.point; // Tam vurduğu nokta
 
     if(ud.dummy){
       const dum=dummyData.find(d=>d.alive&&d.g.traverse(c=>c===obj));
@@ -1190,7 +1224,8 @@ function doRaycast(w,spread=new THREE.Vector2()){
     break;
   }
 
-  if(curWpn!=='knife') makeTracer(start,end);
+  // Tracer: namlu ucundan → tam çarptığı yere
+  if(curWpn!=='knife') makeTracer(muzzleWorldPos, end);
 }
 function fireWeapon(){
   if(!isLocked||gameState!=='playing'||isReloading||drawAnim>0||isInspecting) return;
@@ -1232,32 +1267,30 @@ const colDirs=[new THREE.Vector3(1,0,0),new THREE.Vector3(-1,0,0),new THREE.Vect
 
 /* ── PİNG SİSTEMİ ── */
 let currentPing = 0;
+let _pingT0 = 0;
+// Ping her saniye ölçülür, pong gelince güncellenir
 function measurePing(){
-  if(!socket || typeof socket.emit !== 'function') return;
-  const t0 = performance.now();
+  if(typeof io === 'undefined') return;
+  _pingT0 = performance.now();
   socket.emit('ping_check');
-  socket.once('pong_check', ()=>{
-    currentPing = Math.round(performance.now() - t0);
-    updatePingUI(currentPing);
-  });
-  // Fallback — server ping_check desteklemiyorsa simulate et
-  setTimeout(()=>{ if(currentPing===0){ currentPing=Math.round(20+Math.random()*30); updatePingUI(currentPing); } }, 300);
 }
+socket.on('pong_check', ()=>{
+  currentPing = Math.round(performance.now() - _pingT0);
+  updatePingUI(currentPing);
+});
 function updatePingUI(ms){
-  const el = document.getElementById('ping-val');
-  if(!el) return;
-  el.innerText = ms + ' ms';
-  // Renk
-  const color = ms < 50 ? '#00ffcc' : ms < 100 ? '#e6b800' : ms < 150 ? '#ff8800' : '#ff0044';
-  el.style.color = color;
-  // Sinyal çubukları
-  const bars = [document.getElementById('pd1'),document.getElementById('pd2'),document.getElementById('pd3'),document.getElementById('pd4')];
-  const filled = ms < 50 ? 4 : ms < 100 ? 3 : ms < 150 ? 2 : 1;
-  bars.forEach((b,i)=>{ if(!b) return; b.style.background = i < filled ? color : 'rgba(255,255,255,.12)'; });
+  const el=document.getElementById('ping-val'); if(!el) return;
+  const color=ms<40?'#00ffcc':ms<80?'#aaff44':ms<130?'#e6b800':ms<200?'#ff8800':'#ff0044';
+  el.innerText=ms+' ms';el.style.color=color;
+  const bars=['pd1','pd2','pd3','pd4'].map(id=>document.getElementById(id));
+  const filled=ms<40?4:ms<80?3:ms<130?2:1;
+  bars.forEach((b,i)=>{ if(!b)return; b.style.background=i<filled?color:'rgba(255,255,255,.1)'; });
 }
-// Her 2 saniyede bir ping ölç
-setInterval(measurePing, 2000);
-socket.on('pong_check', ()=>{}); // boş listener (once ile yakalanır)
+// Fallback: socket.io olmasa da ping göster (simüle)
+setInterval(()=>{
+  if(typeof io !== 'undefined' && socket && socket.connected){ measurePing(); }
+  else { currentPing=Math.round(15+Math.random()*10); updatePingUI(currentPing); }
+}, 1000);
 
 /* ── SOKETLER ── */
 // Server'dan kendi ID'mizi al (eski server bunu göndermez — connect'te socket.id yeterli)
@@ -1760,34 +1793,39 @@ function animate(){
     /* Pitch - sekme dışında normale dön */
     if(!isSliding) pitchObj.rotation.x=THREE.MathUtils.lerp(pitchObj.rotation.x,pitchAngle,.35);
 
-    /* SILAH SWAY */
-    swayX=THREE.MathUtils.lerp(swayX,0,.08);swayY=THREE.MathUtils.lerp(swayY,0,.08);
-    wpnContainer.rotation.y=swayX;wpnContainer.rotation.x=swayY;
-
     /* Hareket */
     const isMoving=keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD'];
     const isSprint=keys['ShiftLeft']&&isMoving&&!isAiming&&!isCrouching;
 
-    /* Sprint silah eğimi */
-    wpnContainer.rotation.z=THREE.MathUtils.lerp(wpnContainer.rotation.z,-leanAngle*.8+(isSprint?.04:0),.1);
+    /* SILAH SWAY — mouse hareketi */
+    swayX=THREE.MathUtils.lerp(swayX,0,.07);swayY=THREE.MathUtils.lerp(swayY,0,.07);
+    wpnContainer.rotation.y=swayX*.8;
+    wpnContainer.rotation.x=swayY*.8;
+
+    /* Sprint silah eğimi + lean */
+    const sprintTilt = isSprint ? .18 : 0;
+    const leanTilt   = -leanAngle * .7;
+    wpnContainer.rotation.z=THREE.MathUtils.lerp(wpnContainer.rotation.z, leanTilt+sprintTilt, .1);
+    // Sprint'te silah yukarı çekilir (asker koşu tutumu)
+    const sprintRaiseX = isSprint ? -.22 : 0;
+    const sprintRaiseY = isSprint ? .06  : 0;
 
     /* Recoil */
-    visualRecoilY=THREE.MathUtils.lerp(visualRecoilY,0,.12);
-    visualRecoilX=THREE.MathUtils.lerp(visualRecoilX,0,.12);
-    kickback=THREE.MathUtils.lerp(kickback,0,.12);
+    visualRecoilY=THREE.MathUtils.lerp(visualRecoilY,0,.14);
+    visualRecoilX=THREE.MathUtils.lerp(visualRecoilX,0,.14);
+    kickback=THREE.MathUtils.lerp(kickback,0,.14);
 
     /* Çözme animasyon */
     let tPos=new THREE.Vector3().copy(targetWpnPos);
     if(drawAnim>0){
       drawAnim-=dt;
       if(curWpn==='knife') wpnModel.rotation.x=drawAnim*Math.PI*3.5;
-      else wpnModel.rotation.x=drawAnim*1.8;
+      else wpnModel.rotation.x=drawAnim*1.6;
     } else if(!isInspecting&&curWpn!=='knife'){
-      wpnModel.rotation.x=THREE.MathUtils.lerp(wpnModel.rotation.x,visualRecoilY,.12);
-      wpnModel.rotation.y=THREE.MathUtils.lerp(wpnModel.rotation.y,visualRecoilX,.12);
-      wpnModel.position.z=THREE.MathUtils.lerp(wpnModel.position.z,kickback,.12);
+      wpnModel.rotation.x=THREE.MathUtils.lerp(wpnModel.rotation.x,visualRecoilY,.14);
+      wpnModel.rotation.y=THREE.MathUtils.lerp(wpnModel.rotation.y,visualRecoilX,.14);
+      wpnModel.position.z=THREE.MathUtils.lerp(wpnModel.position.z,kickback,.14);
     } else if(!isInspecting&&curWpn==='knife'){
-      // Bıçak normale dön - orijinal rotasyonuna
       wpnModel.rotation.x=THREE.MathUtils.lerp(wpnModel.rotation.x,0,.14);
       wpnModel.rotation.y=THREE.MathUtils.lerp(wpnModel.rotation.y,0,.14);
       wpnModel.rotation.z=THREE.MathUtils.lerp(wpnModel.rotation.z,0,.14);
@@ -1797,24 +1835,32 @@ function animate(){
     /* İnceleme */
     if(isInspecting){inspectAnim-=dt;wpnModel.rotation.z+=10*dt;if(inspectAnim<=0){isInspecting=false;wpnModel.rotation.z=0;}}
 
-    /* Idle nefes */
+    /* Idle nefes — asker tutumu: hafif titreme */
     const it=now*.001;
-    tPos.x+=Math.sin(it*.7)*.003;tPos.y+=Math.sin(it*1.1)*.002;
+    tPos.x+=Math.sin(it*.65)*.0025;
+    tPos.y+=Math.sin(it*1.05)*.0018;
+    // Sprint tutumu: silah yukarı ve içeriye
+    tPos.x=THREE.MathUtils.lerp(tPos.x, tPos.x+sprintRaiseY, .15);
+    tPos.y=THREE.MathUtils.lerp(tPos.y, tPos.y+sprintRaiseX, .15);
 
     /* ADS pozisyon */
     tPos.lerp(ADS_POS,aimProgress);
 
-    /* Bob */
+    /* Bob — askeri yürüyüş */
     if(isMoving&&canJump&&!isReloading&&!isCrouching&&!isSliding){
-      const bs=isSprint?24:15;bobT+=dt*bs;
-      tPos.y+=Math.sin(bobT)*(isAiming?.002:.02);
-      tPos.x+=Math.cos(bobT/2)*(isAiming?.002:.016);
-      if(now-lastStep>(isSprint?210:330)){playSound('footstep');lastStep=now;}
+      const bs=isSprint?22:13;bobT+=dt*bs;
+      // Dikey + yatay bob (daha gerçekçi yürüyüş)
+      const bobAmt=isAiming?.003:(isSprint?.028:.016);
+      tPos.y+=Math.sin(bobT)*bobAmt;
+      tPos.x+=Math.cos(bobT/2)*bobAmt*.7;
+      // Sprint'te fazladan sarsıntı
+      if(isSprint){ tPos.z+=Math.sin(bobT*2)*.004; }
+      if(now-lastStep>(isSprint?215:340)){playSound('footstep');lastStep=now;}
     }
-    /* Sekme bob */
-    if(isSliding){bobT+=dt*30;tPos.y+=Math.sin(bobT)*.03;}
+    /* Sekme */
+    if(isSliding){bobT+=dt*30;tPos.y+=Math.sin(bobT)*.025;}
 
-    wpnContainer.position.lerp(tPos,.18);
+    wpnContainer.position.lerp(tPos,.16);
 
     /* Crosshair */
     chSpread=THREE.MathUtils.lerp(chSpread,isMoving?14:(isCrouching?-4:0),.1);
