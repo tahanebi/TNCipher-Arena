@@ -170,7 +170,6 @@ body{overflow:hidden;background:var(--bg);font-family:'Rajdhani',sans-serif;user
 </head>
 <body oncontextmenu="return false;">
 
-<!-- INTRO -->
 <div id="intro">
   <div id="igrid"></div><div id="iscan"></div>
   <div id="ilogo">TN CIPHER</div>
@@ -181,7 +180,6 @@ body{overflow:hidden;background:var(--bg);font-family:'Rajdhani',sans-serif;user
   <div id="ibw"><div id="ibf"></div></div>
 </div>
 
-<!-- MENÜ -->
 <div id="menu">
   <canvas id="mbg"></canvas><div id="mvign"></div><div id="mscl"></div>
   <div class="mwrap">
@@ -215,7 +213,6 @@ body{overflow:hidden;background:var(--bg);font-family:'Rajdhani',sans-serif;user
   </div>
 </div>
 
-<!-- HUD -->
 <div id="hhp">
   <div id="hplbl">CAN</div>
   <div id="hpnum">100</div>
@@ -229,13 +226,11 @@ body{overflow:hidden;background:var(--bg);font-family:'Rajdhani',sans-serif;user
 </div>
 <div id="wslots" style="display:none"></div>
 <div id="xh"><div class="xl" id="xt"></div><div class="xl" id="xb"></div><div class="xl" id="xl"></div><div class="xl" id="xr"></div><div id="xd"></div></div>
-<!-- Sniper scope -->
 <div id="scope">
   <div id="scope-circle">
     <div id="scope-h"></div><div id="scope-v"></div><div id="scope-dot"></div>
   </div>
 </div>
-<!-- Hitmarker -->
 <div id="hitmark">
   <div class="hml" id="hmt"></div><div class="hml" id="hmb"></div>
   <div class="hml" id="hml2"></div><div class="hml" id="hmr"></div>
@@ -254,7 +249,6 @@ body{overflow:hidden;background:var(--bg);font-family:'Rajdhani',sans-serif;user
 <div id="stxt"></div>
 <div id="mmw"><canvas id="mmcvs" width="110" height="110"></canvas></div>
 
-<!-- Dev Panel -->
 <div id="dp">
   <div id="dpt">⬡ TEST ALANI — GELİŞTİRİCİ MODU</div>
   <div class="dg">
@@ -270,12 +264,9 @@ body{overflow:hidden;background:var(--bg);font-family:'Rajdhani',sans-serif;user
   <div id="dws"></div>
 </div>
 
-<!-- Ölüm -->
 <div id="death"><div id="dbar"></div><div class="kia">YOK EDİLDİN</div><div id="dsub">OPERATÖR DEVRE DIŞI</div><div id="rtmr">SİNYAL ARANIYYOR... (4)</div><button class="brs" id="brs">YENİDEN KONUŞLAN</button></div>
-<!-- Skor -->
 <div id="sb"><h2 style="text-align:center;color:#fff;font-family:'Rajdhani',sans-serif;letter-spacing:5px;margin:0 0 14px;">OPERATÖR SKORLARI</h2><div class="sbr sbh"><span>AJAN</span><span>LEŞ</span><span>ÖLÜM</span><span>K/D</span><span>PING</span></div><div id="sbl"></div></div>
 
-<!-- Menü canvas -->
 <script>
 (function(){
   const cv=document.getElementById('mbg');if(!cv)return;
@@ -287,6 +278,16 @@ body{overflow:hidden;background:var(--bg);font-family:'Rajdhani',sans-serif;user
 
 <script type="module">
 import * as THREE from 'https://esm.sh/three@0.136.0';
+
+// ═══════════════════════════════════════════════
+//  SİSTEM GİRİŞİ (INTRO KONTROLÜ)
+// ═══════════════════════════════════════════════
+setTimeout(() => {
+    const introEl = document.getElementById('intro');
+    const menuEl = document.getElementById('menu');
+    if (introEl) introEl.style.display = 'none';
+    if (menuEl) menuEl.style.display = 'flex';
+}, 3200);
 
 // ═══════════════════════════════════════════════
 //  SOCKET
@@ -1065,9 +1066,6 @@ function animate(){
   upP(dt);
   if(shakeDur>0){shakeDur-=dt;renderer.domElement.style.transform=`translate(${(Math.random()-.5)*shakeAmt}px,${(Math.random()-.5)*shakeAmt}px)`;}
   else{renderer.domElement.style.transform='';shakeAmt=0;}
-
-  // HP regen
-  if(myHP<100&&myHP>0&&gameState==='// ... (Önceki kodların devamı)
 
   // HP regen
   if(myHP<100&&myHP>0&&gameState==='playing'&&(now-lastDmg>4500)){
