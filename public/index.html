@@ -11,7 +11,7 @@
 body{overflow:hidden;background:var(--bg);font-family:'Rajdhani',sans-serif;user-select:none;cursor:none;}
 
 /* ── INTRO ── */
-#intro{position:fixed;inset:0;background:#000;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+#intro{position:fixed;inset:0;background:#000;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transition:opacity 0.6s ease;}
 #igrid{position:absolute;inset:0;background-image:linear-gradient(rgba(230,184,0,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(230,184,0,.03) 1px,transparent 1px);background-size:50px 50px;}
 #iscan{position:absolute;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,rgba(230,184,0,.4),transparent);animation:iscan 2.2s linear infinite;}
 @keyframes iscan{0%{top:-2px}100%{top:100vh}}
@@ -26,7 +26,7 @@ body{overflow:hidden;background:var(--bg);font-family:'Rajdhani',sans-serif;user
 @keyframes iup{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── MENÜ ── */
-#menu{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;z-index:900;flex-direction:column;overflow:hidden;}
+#menu{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;z-index:900;flex-direction:column;overflow:hidden;opacity:0;transition:opacity 0.8s ease;}
 #mbg{position:absolute;inset:0;z-index:0;}
 #mvign{position:absolute;inset:0;background:radial-gradient(ellipse,transparent 30%,rgba(0,0,0,.9) 100%);pointer-events:none;z-index:1;}
 #mscl{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);pointer-events:none;z-index:1;}
@@ -285,8 +285,14 @@ import * as THREE from 'https://esm.sh/three@0.136.0';
 setTimeout(() => {
     const introEl = document.getElementById('intro');
     const menuEl = document.getElementById('menu');
-    if (introEl) introEl.style.display = 'none';
-    if (menuEl) menuEl.style.display = 'flex';
+    if (introEl) {
+        introEl.style.opacity = '0';
+        setTimeout(() => introEl.style.display = 'none', 600);
+    }
+    if (menuEl) {
+        menuEl.style.display = 'flex';
+        setTimeout(() => menuEl.style.opacity = '1', 100);
+    }
 }, 3200);
 
 // ═══════════════════════════════════════════════
@@ -364,7 +370,7 @@ const WPNS={
 let curWpn='rifle',isReloading=false,lastFire=0,isAiming=false,isCrouching=false,isSliding=false;
 let rvY=0,rvH=0,kb=0,chSp=0,drawAnim=0,inspAnim=0,isInspecting=false;
 let leanAngle=0,tLean=0,leanL=false,leanR=false;
-let swX=0,swY=0,aimP=0,bobT=0,lastStep=0;
+let swX=0,swY=0,aimP=0,bobT=0,lastStep=0,landBob=0;
 let shakeDur=0,shakeAmt=0;
 const SLIDE_DUR=.7,SLIDE_CD=1.8;
 let slideTimer=0,slideCool=0,_sSpd=0;
@@ -443,7 +449,9 @@ document.addEventListener('mousemove',e=>{
   pitchAngle-=e.movementY*sens;
   pitchAngle=Math.max(-1.45,Math.min(1.45,pitchAngle));
   pitchObj.rotation.x=pitchAngle;
-  swX-=e.movementX*.00020;swY-=e.movementY*.00020;
+  // Silah savrulması (sway) arttırıldı
+  swX-=e.movementX*.00030;
+  swY-=e.movementY*.00030;
 });
 
 // ── TEXTURE ──────────────────────────────────
@@ -601,7 +609,7 @@ function mkWpn(type){
     // Dürbün
     const scope=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.26,10),DK);scope.rotation.x=Math.PI/2;scope.position.set(0,.105,.05);g.add(scope);
     const scoL=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.06,10),new THREE.MeshBasicMaterial({color:0x001122,transparent:true,opacity:.9}));scoL.rotation.x=Math.PI/2;scoL.position.set(0,.105,-.11);g.add(scoL);
-    const scoR=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.06,10),new THREE.MeshBasicMaterial({color:0x001122,transparent:true,opacity:.9}));scoR.rotation.x=Math.PI/2;scoR.position.set(0,.105,.21);g.add(scoR);
+    const scoR=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.06,10),new MeshBasicMaterial({color:0x001122,transparent:true,opacity:.9}));scoR.rotation.x=Math.PI/2;scoR.position.set(0,.105,.21);g.add(scoR);
     // Destek çatalı
     const bpL=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.28),DK);bpL.position.set(-.055,.02,-.8);bpL.rotation.z=.25;g.add(bpL);
     const bpR=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.28),DK);bpR.position.set(.055,.02,-.8);bpR.rotation.z=-.25;g.add(bpR);
@@ -857,7 +865,9 @@ function reloadWeapon(){
 // ── OYUN BAŞLATMA ────────────────────────────
 function startGame(testMode=false){
   isTest=testMode;gameState='playing';
-  document.getElementById('menu').style.display='none';
+  document.getElementById('menu').style.opacity='0';
+  setTimeout(() => document.getElementById('menu').style.display='none', 800);
+  
   document.getElementById('mhud').style.display='block';
   document.getElementById('modn').innerText=testMode?'TEST':'HARITA';
   if(testMode){testGrp.visible=true;document.getElementById('dp').style.display='block';yawObj.position.set(0,2,3);document.getElementById('stxt').style.display='block';document.getElementById('stxt').innerText='TEST ATIŞ ALANI — Geliştirici Modu';setTimeout(()=>document.getElementById('stxt').style.display='none',3200);}
@@ -868,7 +878,14 @@ document.getElementById('bplay').addEventListener('click',()=>startGame(false));
 document.getElementById('btest').addEventListener('click',()=>startGame(true));
 document.getElementById('brs').addEventListener('click',()=>{document.getElementById('death').style.display='none';gameState='playing';document.body.requestPointerLock();});
 document.addEventListener('keydown',e=>{
-  if(e.code==='Escape'&&gameState==='playing'){gameState='menu';document.exitPointerLock();document.getElementById('menu').style.display='flex';['xh','hhp','hammo'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});}
+  if(e.code==='Escape'&&gameState==='playing'){
+      gameState='menu';
+      document.exitPointerLock();
+      const menu = document.getElementById('menu');
+      menu.style.display='flex';
+      setTimeout(()=>menu.style.opacity='1', 50);
+      ['xh','hhp','hammo'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  }
 });
 
 // ── TUŞLAR ───────────────────────────────────
@@ -1169,6 +1186,7 @@ function animate(){
 
     const tH=ground+(isCrouching?0.8:1.6);
     if(yawObj.position.y<=tH){
+      if(velY < -15) landBob = 0.12; // Sert düşünce oluşan zıplama efekti
       yawObj.position.y=tH;
       velY=0;
       canJump=true;
@@ -1189,6 +1207,9 @@ function animate(){
     camera.fov=THREE.MathUtils.lerp(camera.fov,isAiming?w.adsZ:(isSprint?82:75),10*dt);
     camera.updateProjectionMatrix();
 
+    // Düşme Sarsıntısı (Landing Bob)
+    landBob = THREE.MathUtils.lerp(landBob, 0, 15*dt);
+
     // Bobbing (Yürüme sallantısı)
     if(isMoving&&!isSliding){
       bobT+=dt*(isSprint?14:9);
@@ -1199,6 +1220,7 @@ function animate(){
         SFX.footstep();lastStep=now;
       }
     }
+    tWPos.y -= landBob;
 
     // Eğilme (Lean)
     const tL=leanL?18:leanR?-18:0;
@@ -1221,13 +1243,13 @@ function animate(){
     yawObj.rotation.y+=rvH*dt*6;
 
     // Silahın render pozisyonu
-    wpnContainer.position.lerp(tWPos,15*dt);
+    wpnCont.position.lerp(tWPos,15*dt);
     
     // Silah sallanması (Sway)
     swX=THREE.MathUtils.lerp(swX,0,8*dt);
     swY=THREE.MathUtils.lerp(swY,0,8*dt);
-    wpnContainer.rotation.y=swX+(leanAngle*-.01);
-    wpnContainer.rotation.x=swY;
+    wpnCont.rotation.y=swX+(tLean*-.01);
+    wpnCont.rotation.x=swY;
 
     if(!isInspecting) wpnModel.rotation.z=THREE.MathUtils.lerp(wpnModel.rotation.z,0,12*dt);
     
